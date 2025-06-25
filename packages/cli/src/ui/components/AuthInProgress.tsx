@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text, useInput } from 'ink';
 import Spinner from 'ink-spinner';
 import { Colors } from '../colors.js';
@@ -16,6 +16,7 @@ interface AuthInProgressProps {
 export function AuthInProgress({
   onTimeout,
 }: AuthInProgressProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [timedOut, setTimedOut] = useState(false);
 
   useInput((_, key) => {
@@ -43,12 +44,13 @@ export function AuthInProgress({
     >
       {timedOut ? (
         <Text color={Colors.AccentRed}>
-          Authentication timed out. Please try again.
+          {t('Authentication timed out. Please try again.')}
         </Text>
       ) : (
         <Box>
           <Text>
-            <Spinner type="dots" /> Waiting for auth... (Press ESC to cancel)
+            <Spinner type="dots" />{' '}
+            {t('Waiting for auth... (Press ESC to cancel)')}
           </Text>
         </Box>
       )}

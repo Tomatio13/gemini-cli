@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import {
@@ -27,6 +27,7 @@ export function EditorSettingsDialog({
   settings,
   onExit,
 }: EditorDialogProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [selectedScope, setSelectedScope] = useState<SettingScope>(
     SettingScope.User,
   );
@@ -58,8 +59,8 @@ export function EditorSettingsDialog({
   }
 
   const scopeItems = [
-    { label: 'User Settings', value: SettingScope.User },
-    { label: 'Workspace Settings', value: SettingScope.Workspace },
+    { label: t('User Settings'), value: SettingScope.User },
+    { label: t('Workspace Settings'), value: SettingScope.Workspace },
   ];
 
   const handleEditorSelect = (editorType: EditorType | 'not_set') => {
@@ -83,11 +84,11 @@ export function EditorSettingsDialog({
   if (settings.forScope(otherScope).settings.preferredEditor !== undefined) {
     otherScopeModifiedMessage =
       settings.forScope(selectedScope).settings.preferredEditor !== undefined
-        ? `(Also modified in ${otherScope})`
-        : `(Modified in ${otherScope})`;
+        ? t('(Also modified in {{scope}})', { scope: otherScope })
+        : t('(Modified in {{scope}})', { scope: otherScope });
   }
 
-  let mergedEditorName = 'None';
+  let mergedEditorName = t('None');
   if (
     settings.merged.preferredEditor &&
     isEditorAvailable(settings.merged.preferredEditor)
@@ -106,7 +107,8 @@ export function EditorSettingsDialog({
     >
       <Box flexDirection="column" width="45%" paddingRight={2}>
         <Text bold={focusedSection === 'editor'}>
-          {focusedSection === 'editor' ? '> ' : '  '}Select Editor{' '}
+          {focusedSection === 'editor' ? '> ' : '  '}
+          {t('Select Editor')}{' '}
           <Text color={Colors.Gray}>{otherScopeModifiedMessage}</Text>
         </Text>
         <RadioButtonSelect
@@ -123,7 +125,8 @@ export function EditorSettingsDialog({
 
         <Box marginTop={1} flexDirection="column">
           <Text bold={focusedSection === 'scope'}>
-            {focusedSection === 'scope' ? '> ' : '  '}Apply To
+            {focusedSection === 'scope' ? '> ' : '  '}
+            {t('Apply To')}
           </Text>
           <RadioButtonSelect
             items={scopeItems}
@@ -135,31 +138,23 @@ export function EditorSettingsDialog({
 
         <Box marginTop={1}>
           <Text color={Colors.Gray}>
-            (Use Enter to select, Tab to change focus)
+            {t('(Use Enter to select, Tab to change focus)')}
           </Text>
         </Box>
       </Box>
 
       <Box flexDirection="column" width="55%" paddingLeft={2}>
-        <Text bold>Editor Preference</Text>
+        <Text bold>{t('Editor Preference')}</Text>
         <Box flexDirection="column" gap={1} marginTop={1}>
           <Text color={Colors.Gray}>
-            These editors are currently supported. Please note that some editors
-            cannot be used in sandbox mode.
+            {t(
+              'These editors are currently supported. Please note that some editors cannot be used in sandbox mode.',
+            )}
           </Text>
           <Text color={Colors.Gray}>
-            Your preferred editor is:{' '}
-            <Text
-              color={
-                mergedEditorName === 'None'
-                  ? Colors.AccentRed
-                  : Colors.AccentCyan
-              }
-              bold
-            >
-              {mergedEditorName}
-            </Text>
-            .
+            {t('Your preferred editor is: {{editorName}}.', {
+              editorName: mergedEditorName,
+            })}
           </Text>
         </Box>
       </Box>

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { type Config } from '@google/gemini-cli-core';
@@ -14,15 +14,16 @@ interface TipsProps {
 }
 
 export const Tips: React.FC<TipsProps> = ({ config }) => {
+  const { t } = useTranslation();
   const geminiMdFileCount = config.getGeminiMdFileCount();
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={Colors.Foreground}>Tips for getting started:</Text>
+      <Text color={Colors.Foreground}>{t('Tips for getting started:')}</Text>
       <Text color={Colors.Foreground}>
-        1. Ask questions, edit files, or run commands.
+        1. {t('Ask questions, edit files, or run commands.')}
       </Text>
       <Text color={Colors.Foreground}>
-        2. Be specific for the best results.
+        2. {t('Be specific for the best results.')}
       </Text>
       {geminiMdFileCount === 0 && (
         <Text color={Colors.Foreground}>
@@ -30,7 +31,7 @@ export const Tips: React.FC<TipsProps> = ({ config }) => {
           <Text bold color={Colors.AccentPurple}>
             GEMINI.md
           </Text>{' '}
-          files to customize your interactions with Gemini.
+          {t('files to customize your interactions with Gemini.')}
         </Text>
       )}
       <Text color={Colors.Foreground}>
@@ -38,7 +39,7 @@ export const Tips: React.FC<TipsProps> = ({ config }) => {
         <Text bold color={Colors.AccentPurple}>
           /help
         </Text>{' '}
-        for more information.
+        {t('for more information.')}
       </Text>
     </Box>
   );

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { shortenPath, tildeifyPath, tokenLimit } from '@google/gemini-cli-core';
@@ -39,6 +39,7 @@ export const Footer: React.FC<FooterProps> = ({
   showMemoryUsage,
   totalTokenCount,
 }) => {
+  const { t } = useTranslation();
   const limit = tokenLimit(model);
   const percentage = totalTokenCount / limit;
 
@@ -69,12 +70,12 @@ export const Footer: React.FC<FooterProps> = ({
           </Text>
         ) : process.env.SANDBOX === 'sandbox-exec' ? (
           <Text color={Colors.AccentYellow}>
-            MacOS Seatbelt{' '}
+            {t('MacOS Seatbelt')}{' '}
             <Text color={Colors.Gray}>({process.env.SEATBELT_PROFILE})</Text>
           </Text>
         ) : (
           <Text color={Colors.AccentRed}>
-            no sandbox <Text color={Colors.Gray}>(see /docs)</Text>
+            {t('no sandbox')} <Text color={Colors.Gray}>(see /docs)</Text>
           </Text>
         )}
       </Box>
@@ -85,7 +86,7 @@ export const Footer: React.FC<FooterProps> = ({
           {' '}
           {model}{' '}
           <Text color={Colors.Gray}>
-            ({((1 - percentage) * 100).toFixed(0)}% context left)
+            ({((1 - percentage) * 100).toFixed(0)}% {t('context left')})
           </Text>
         </Text>
         {corgiMode && (

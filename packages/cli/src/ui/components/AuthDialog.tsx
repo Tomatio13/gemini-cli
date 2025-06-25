@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
@@ -25,20 +25,21 @@ export function AuthDialog({
   settings,
   initialErrorMessage,
 }: AuthDialogProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(
     initialErrorMessage || null,
   );
   const allAuthItems = [
     {
-      label: 'Login with Google',
+      label: t('Login with Google'),
       value: AuthType.LOGIN_WITH_GOOGLE_PERSONAL,
     },
-    { label: 'Gemini API Key', value: AuthType.USE_GEMINI },
+    { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
     {
-      label: 'Login with Google Workspace',
+      label: t('Login with Google Workspace'),
       value: AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE,
     },
-    { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
+    { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
   ];
 
   const isSelectedAuthInMore = allAuthItems
@@ -49,7 +50,7 @@ export function AuthDialog({
 
   const initialAuthItems = [
     ...allAuthItems.slice(0, 2),
-    { label: 'More...', value: 'more' },
+    { label: t('More...'), value: 'more' },
   ];
 
   const items = showAll ? allAuthItems : initialAuthItems;
@@ -81,7 +82,9 @@ export function AuthDialog({
       if (settings.merged.selectedAuthType === undefined) {
         // Prevent exiting if no auth method is set
         setErrorMessage(
-          'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+          t(
+            'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+          ),
         );
         return;
       }
@@ -97,7 +100,7 @@ export function AuthDialog({
       padding={1}
       width="100%"
     >
-      <Text bold>Select Auth Method</Text>
+      <Text bold>{t('Select Auth Method')}</Text>
       <RadioButtonSelect
         items={items}
         initialIndex={initialAuthIndex}
@@ -111,7 +114,7 @@ export function AuthDialog({
         </Box>
       )}
       <Box marginTop={1}>
-        <Text color={Colors.Gray}>(Use Enter to select)</Text>
+        <Text color={Colors.Gray}>{t('(Use Enter to select)')}</Text>
       </Box>
     </Box>
   );
