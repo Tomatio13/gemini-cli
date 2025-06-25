@@ -13,7 +13,7 @@ interface TipsProps {
   config: Config;
 }
 
-export const Tips: React.FC<TipsProps> = ({ config }) => {
+export const Tips = ({ config }: TipsProps) => {
   const { t } = useTranslation();
   const geminiMdFileCount = config.getGeminiMdFileCount();
   return (

@@ -13,7 +13,7 @@ interface Help {
   commands: SlashCommand[];
 }
 
-export const Help: React.FC<Help> = ({ commands }) => {
+export const Help = ({ commands }: Help) => {
   const { t } = useTranslation();
   return (
     <Box

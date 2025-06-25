@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';

@@ -50,6 +50,22 @@
     "Your preferred editor is: {{editorName}}.": "優先エディタ：{{editorName}}",
     "None": "なし",
     "Select Theme": "テーマを選択",
-    "Preview": "プレビュー"
+    "Preview": "プレビュー",
+    "for help on gemini-cli": "gemini-cliのヘルプ",
+    "open full Gemini CLI documentation in your browser": "ブラウザでGemini CLIの完全なドキュメントを開く",
+    "clear the screen and conversation history": "画面と会話の履歴をクリアする",
+    "change the theme": "テーマを変更する",
+    "change the auth method": "認証方法を変更する",
+    "set external editor preference": "外部エディタの設定",
+    "check session stats": "セッションの統計を確認する",
+    "list configured MCP servers and tools": "設定されているMCPサーバーとツールを一覧表示する",
+    "manage memory. Usage: /memory <show|refresh|add> [text for add]": "メモリを管理します。使用法: /memory <show|refresh|add> [addするテキスト]",
+    "list available Gemini CLI tools": "利用可能なGemini CLIツールを一覧表示する",
+    "show version info": "バージョン情報を表示する",
+    "submit a bug report": "バグレポートを送信する",
+    "Manage conversation history. Usage: /chat <list|save|resume> [tag]": "会話履歴を管理します。使用法: /chat <list|save|resume> [タグ]",
+    "exit the cli": "CLIを終了する",
+    "Compresses the context by replacing it with a summary.": "コンテキストを要約に置き換えて圧縮します。",
+    "restore a tool call. This will reset the conversation and file history to the state it was in when the tool call was suggested": "ツールコールを復元します。これにより、会話とファイルの履歴がツールコールが提案されたときの状態にリセットされます。"
   }
 }

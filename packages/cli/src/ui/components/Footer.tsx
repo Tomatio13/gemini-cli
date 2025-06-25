@@ -27,7 +27,7 @@ interface FooterProps {
   totalTokenCount: number;
 }
 
-export const Footer: React.FC<FooterProps> = ({
+export const Footer = ({
   model,
   targetDir,
   branchName,
@@ -38,7 +38,7 @@ export const Footer: React.FC<FooterProps> = ({
   showErrorDetails,
   showMemoryUsage,
   totalTokenCount,
-}) => {
+}: FooterProps) => {
   const { t } = useTranslation();
   const limit = tokenLimit(model);
   const percentage = totalTokenCount / limit;
