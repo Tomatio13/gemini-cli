@@ -46,13 +46,7 @@ export const useAuthCommand = (
           config,
         );
       } catch (e) {
-        const errorMessage =
-          settings.merged.selectedAuthType ===
-          AuthType.LOGIN_WITH_GOOGLE_PERSONAL
-            ? `Failed to login. Ensure your Google account is not a Workspace account.
-Message: ${getErrorMessage(e)}`
-            : `Failed to login. Message: ${getErrorMessage(e)}`;
-        setAuthError(errorMessage);
+        setAuthError(`Failed to login. Message: ${getErrorMessage(e)}`);
         openAuthDialog();
       } finally {
         setIsAuthenticating(false);

@@ -30,32 +30,14 @@ export function AuthDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(
     initialErrorMessage || null,
   );
-  const allAuthItems = [
+  const items = [
     {
       label: t('Login with Google'),
       value: AuthType.LOGIN_WITH_GOOGLE_PERSONAL,
     },
     { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
-    {
-      label: t('Login with Google Workspace'),
-      value: AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE,
-    },
     { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
   ];
-
-  const isSelectedAuthInMore = allAuthItems
-    .slice(2)
-    .some((item) => item.value === settings.merged.selectedAuthType);
-
-  const [showAll, setShowAll] = useState(isSelectedAuthInMore);
-
-  const initialAuthItems = [
-    ...allAuthItems.slice(0, 2),
-    { label: t('More...'), value: 'more' },
-  ];
-
-  const items = showAll ? allAuthItems : initialAuthItems;
-
   let initialAuthIndex = items.findIndex(
     (item) => item.value === settings.merged.selectedAuthType,
   );
@@ -65,10 +47,6 @@ export function AuthDialog({
   }
 
   const handleAuthSelect = (authMethod: string) => {
-    if (authMethod === 'more') {
-      setShowAll(true);
-      return;
-    }
     const error = validateAuthMethod(authMethod);
     if (error) {
       setErrorMessage(error);
@@ -116,6 +94,16 @@ export function AuthDialog({
       )}
       <Box marginTop={1}>
         <Text color={Colors.Gray}>{t('(Use Enter to select)')}</Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text>Terms of Services and Privacy Notice for Gemini CLI</Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text color={Colors.AccentBlue}>
+          {
+            'https://github.com/google-gemini/gemini-cli/blob/main/docs/tos-privacy.md'
+          }
+        </Text>
       </Box>
     </Box>
   );

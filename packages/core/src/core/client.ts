@@ -115,8 +115,8 @@ export class GeminiClient {
       fileService: this.config.getFileService(),
     });
     const context = `
-  Okay, just setting up the context for our chat.
-  Today is ${today}.
+  This is the Gemini CLI. We are setting up the context for our chat.
+  Today's date is ${today}.
   My operating system is: ${platform}
   I'm currently working in the directory: ${cwd}
   ${folderStructure}
@@ -196,7 +196,6 @@ export class GeminiClient {
       return new GeminiChat(
         this.config,
         this.getContentGenerator(),
-        this.model,
         {
           systemInstruction,
           ...generateContentConfigWithThinking,
@@ -505,10 +504,7 @@ export class GeminiClient {
    */
   private async handleFlashFallback(authType?: string): Promise<string | null> {
     // Only handle fallback for OAuth users
-    if (
-      authType !== AuthType.LOGIN_WITH_GOOGLE_PERSONAL &&
-      authType !== AuthType.LOGIN_WITH_GOOGLE_ENTERPRISE
-    ) {
+    if (authType !== AuthType.LOGIN_WITH_GOOGLE_PERSONAL) {
       return null;
     }
 

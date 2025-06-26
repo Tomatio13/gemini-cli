@@ -624,17 +624,24 @@ export const useSlashCommandProcessor = (
           const cliVersion = await getCliVersion();
           const memoryUsage = formatMemoryUsage(process.memoryUsage().rss);
 
-          const diagnosticInfo = `\n## Describe the bug\nA clear and concise description of what the bug is.\n\n## Additional context\nAdd any other context about the problem here.\n\n## Diagnostic Information\n*   **CLI Version:** ${cliVersion}\n*   **Git Commit:** ${GIT_COMMIT_INFO}\n*   **Operating System:** ${osVersion}\n*   **Sandbox Environment:** ${sandboxEnv}\n*   **Model Version:** ${modelVersion}\n*   **Memory Usage:** ${memoryUsage}\n`;
+          const info = `
+*   **CLI Version:** ${cliVersion}
+*   **Git Commit:** ${GIT_COMMIT_INFO}
+*   **Operating System:** ${osVersion}
+*   **Sandbox Environment:** ${sandboxEnv}
+*   **Model Version:** ${modelVersion}
+*   **Memory Usage:** ${memoryUsage}
+`;
 
           let bugReportUrl =
-            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.md&title={title}&body={body}';
+            'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title={title}&info={info}';
           const bugCommand = config?.getBugCommand();
           if (bugCommand?.urlTemplate) {
             bugReportUrl = bugCommand.urlTemplate;
           }
           bugReportUrl = bugReportUrl
             .replace('{title}', encodeURIComponent(bugDescription))
-            .replace('{body}', encodeURIComponent(diagnosticInfo));
+            .replace('{info}', encodeURIComponent(info));
 
           addMessage({
             type: MessageType.INFO,
@@ -716,6 +723,11 @@ export const useSlashCommandProcessor = (
               let i = 0;
               for (const item of conversation) {
                 i += 1;
+
+                // Add each item to history regardless of whether we display
+                // it.
+                chat.addHistory(item);
+
                 const text =
                   item.parts
                     ?.filter((m) => !!m.text)
@@ -725,7 +737,6 @@ export const useSlashCommandProcessor = (
                   // Parsing Part[] back to various non-text output not yet implemented.
                   continue;
                 }
-                chat.addHistory(item);
                 if (i === 1 && text.match(/context for our chat/)) {
                   hasSystemPrompt = true;
                 }
