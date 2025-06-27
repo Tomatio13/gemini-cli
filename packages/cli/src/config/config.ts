@@ -53,6 +53,8 @@ interface CliArgs {
   telemetryTarget: string | undefined;
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
+  'custom-endpoint': string | undefined;
+  'custom-api-key': string | undefined;
 }
 
 async function parseArguments(): Promise<CliArgs> {
@@ -128,6 +130,14 @@ async function parseArguments(): Promise<CliArgs> {
       description: 'Enables checkpointing of file edits',
       default: false,
     })
+    .option('custom-endpoint', {
+      type: 'string',
+      description: 'Custom API endpoint URL (for litellm/ollama compatibility)',
+    })
+    .option('custom-api-key', {
+      type: 'string',
+      description: 'API key for custom endpoint',
+    })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -197,6 +207,17 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
+  // Determine auth type based on custom endpoint settings
+  let authType;
+  let customBaseUrl;
+  let customApiKey;
+  
+  if (argv['custom-endpoint'] || process.env.CUSTOM_BASE_URL) {
+    authType = 'custom-endpoint';
+    customBaseUrl = argv['custom-endpoint'] || process.env.CUSTOM_BASE_URL;
+    customApiKey = argv['custom-api-key'] || process.env.CUSTOM_API_KEY;
+  }
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -245,6 +266,10 @@ export async function loadCliConfig(
     bugCommand: settings.bugCommand,
     model: argv.model!,
     extensionContextFilePaths,
+    // Custom endpoint configuration
+    customAuthType: authType,
+    customBaseUrl,
+    customApiKey,
   });
 }
 

@@ -126,6 +126,10 @@ export interface ConfigParameters {
   bugCommand?: BugCommandSettings;
   model: string;
   extensionContextFilePaths?: string[];
+  // Custom endpoint configuration
+  customAuthType?: string;
+  customBaseUrl?: string;
+  customApiKey?: string;
 }
 
 export class Config {
@@ -166,6 +170,10 @@ export class Config {
   private readonly extensionContextFilePaths: string[];
   private modelSwitchedDuringSession: boolean = false;
   flashFallbackHandler?: FlashFallbackHandler;
+  // Custom endpoint configuration
+  private readonly customAuthType?: string;
+  private readonly customBaseUrl?: string;
+  private readonly customApiKey?: string;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -207,6 +215,10 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
+    // Custom endpoint configuration
+    this.customAuthType = params.customAuthType;
+    this.customBaseUrl = params.customBaseUrl;
+    this.customApiKey = params.customApiKey;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -452,6 +464,19 @@ export class Config {
       await this.gitService.initialize();
     }
     return this.gitService;
+  }
+
+  // Custom endpoint configuration getters
+  getCustomAuthType(): string | undefined {
+    return this.customAuthType;
+  }
+
+  getCustomBaseUrl(): string | undefined {
+    return this.customBaseUrl;
+  }
+
+  getCustomApiKey(): string | undefined {
+    return this.customApiKey;
   }
 }
 
