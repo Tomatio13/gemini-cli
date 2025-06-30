@@ -32,6 +32,7 @@
     "Gemini API Key": "Gemini APIキー",
     "Login with Google Workspace": "Google Workspaceでログイン",
     "Vertex AI": "Vertex AI",
+    "Custom Endpoint": "カスタムエンドポイント",
     "More...": "その他...",
     "You must select an auth method to proceed. Press Ctrl+C twice to exit.": "続行するには認証方法を選択する必要があります。Ctrl+Cを2回押して終了します。",
     "Select Auth Method": "認証方法を選択",

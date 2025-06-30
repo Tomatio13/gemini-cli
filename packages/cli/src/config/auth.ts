@@ -35,5 +35,12 @@ export const validateAuthMethod = (authMethod: string): string | null => {
     return null;
   }
 
+  if (authMethod === AuthType.USE_CUSTOM_ENDPOINT) {
+    if (!process.env.CUSTOM_BASE_URL) {
+      return 'CUSTOM_BASE_URL environment variable not found. Add that to your .env and try again, no reload needed!';
+    }
+    return null;
+  }
+
   return 'Invalid auth method selected.';
 };

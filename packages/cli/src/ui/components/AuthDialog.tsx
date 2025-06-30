@@ -37,6 +37,7 @@ export function AuthDialog({
     },
     { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
     { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
+    { label: t('Custom Endpoint'), value: AuthType.USE_CUSTOM_ENDPOINT },
   ];
   let initialAuthIndex = items.findIndex(
     (item) => item.value === settings.merged.selectedAuthType,
@@ -47,6 +48,19 @@ export function AuthDialog({
   }
 
   const handleAuthSelect = (authMethod: string) => {
+    // カスタムエンドポイントの場合は特別な処理
+    if (authMethod === AuthType.USE_CUSTOM_ENDPOINT) {
+      const hasCustomEndpoint = process.env.CUSTOM_BASE_URL || 
+        process.argv.includes('--custom-endpoint');
+      if (!hasCustomEndpoint) {
+        setErrorMessage('CUSTOM_BASE_URL environment variable or --custom-endpoint option not found. Add that to your .env or use --custom-endpoint flag and try again, no reload needed!');
+        return;
+      }
+      setErrorMessage(null);
+      onSelect(authMethod, SettingScope.User);
+      return;
+    }
+    
     const error = validateAuthMethod(authMethod);
     if (error) {
       setErrorMessage(error);
