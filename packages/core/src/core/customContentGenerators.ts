@@ -26,29 +26,30 @@ import { fetchWithTimeout } from '../utils/fetch.js';
  * Helper function to normalize ContentListUnion to Content array
  */
 function normalizeContents(contents: any): Content[] {
-  if (!contents) return [];
-
-  // If it's already an array of Content objects
-  if (Array.isArray(contents)) {
-    return contents.filter((item: any) => item && typeof item === 'object' && 'parts' in item);
+  if (!Array.isArray(contents)) {
+    return [];
   }
 
-  // If it's a single Content object
-  if (typeof contents === 'object' && 'parts' in contents) {
-    return [contents];
-  }
+  return contents.map((content: any) => {
+    // 文字列の場合は、userロールのメッセージとして扱う
+    if (typeof content === 'string') {
+      return {
+        role: 'user',
+        parts: [{ text: content }]
+      };
+    }
 
-  // If it's a string or PartUnion, convert to Content
-  if (typeof contents === 'string') {
-    return [{ parts: [{ text: contents }], role: 'user' }];
-  }
+    // 正しい形式のContentオブジェクトの場合
+    if (content && typeof content === 'object' && content.role && content.parts) {
+      return content;
+    }
 
-  // If it's a Part object
-  if (typeof contents === 'object' && ('text' in contents || 'inlineData' in contents)) {
-    return [{ parts: [contents], role: 'user' }];
-  }
-
-  return [];
+    // その他の場合は、JSON文字列として扱う
+    return {
+      role: 'user',
+      parts: [{ text: JSON.stringify(content) }]
+    };
+  }).filter(content => content.role && content.parts); // 有効なコンテンツのみを返す
 }
 
 /**
@@ -75,7 +76,14 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      let errorDetails = '';
+      try {
+        const errorData = await response.json();
+        errorDetails = JSON.stringify(errorData);
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}. Details: ${errorDetails}`);
     }
 
     const data = await response.json();
@@ -109,7 +117,14 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      let errorDetails = '';
+      try {
+        const errorData = await response.json();
+        errorDetails = JSON.stringify(errorData);
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}. Details: ${errorDetails}`);
     }
 
     const reader = response.body?.getReader();
@@ -215,16 +230,29 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
 
   private convertToOpenAIFormat(request: GenerateContentParameters): any {
     const contents = normalizeContents(request.contents);
-    let messages = contents.map((content: Content) => ({
-      role: content.role === 'model' ? 'assistant' : content.role,
-      content: content.parts?.map((part: Part) => {
-        if ('text' in part) {
-          return part.text;
-        }
-        // Handle other part types as needed
-        return JSON.stringify(part);
-      }).join('\n') || '',
-    }));
+    
+    let messages = contents.map((content: Content) => {
+      const message = {
+        role: content.role === 'model' ? 'assistant' : content.role,
+        content: content.parts?.map((part: Part) => {
+          if ('text' in part) {
+            return part.text;
+          }
+          // Handle other part types as needed
+          return JSON.stringify(part);
+        }).join('\n') || '',
+      };
+      
+      return message;
+    });
+
+    // Filter out invalid messages
+    const validMessages = messages.filter(msg => 
+      msg.role && typeof msg.role === 'string' && 
+      msg.content && typeof msg.content === 'string'
+    );
+    
+    messages = validMessages;
 
     // Handle JSON generation requests by adding a system message
     if (request.config?.responseMimeType === 'application/json' && request.config?.responseSchema) {
@@ -253,12 +281,17 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
       for (const tool of request.config.tools) {
         if ('functionDeclarations' in tool && tool.functionDeclarations) {
           for (const funcDecl of tool.functionDeclarations) {
+            // Sanitize and validate parameters for OpenAI compatibility
+            const sanitizedParameters = this.sanitizeParametersForOpenAI(
+              funcDecl.parameters || { type: 'object', properties: {} }
+            );
+
             openAITools.push({
               type: 'function',
               function: {
                 name: funcDecl.name,
                 description: funcDecl.description || '',
-                parameters: funcDecl.parameters || { type: 'object', properties: {} },
+                parameters: sanitizedParameters,
               },
             });
           }
@@ -272,6 +305,173 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
     }
 
     return openAIRequest;
+  }
+
+  /**
+   * Sanitizes parameter schemas to ensure OpenAI API compatibility
+   */
+  private sanitizeParametersForOpenAI(parameters: any): any {
+    if (!parameters || typeof parameters !== 'object') {
+      return { type: 'object', properties: {} };
+    }
+
+    // If parameters is a string, convert it to a proper schema
+    if (typeof parameters === 'string') {
+      if (parameters.toLowerCase() === 'string') {
+        return { type: 'string' };
+      } else if (parameters.toLowerCase() === 'number') {
+        return { type: 'number' };
+      } else if (parameters.toLowerCase() === 'boolean') {
+        return { type: 'boolean' };
+      } else {
+        return { type: 'object', properties: {} };
+      }
+    }
+
+    // Deep clone to avoid modifying original
+    let sanitized = JSON.parse(JSON.stringify(parameters));
+
+    // Recursively sanitize the schema
+    this.sanitizeSchemaRecursively(sanitized);
+
+    // OpenAI requires function parameters to be of type 'object'
+    // If the schema is not an object, wrap it in an object structure
+    if (!sanitized.type || sanitized.type !== 'object') {
+      if (sanitized.type && sanitized.type !== 'object') {
+        // Wrap non-object types in an object with a single property
+        sanitized = {
+          type: 'object',
+          properties: {
+            value: {
+              type: sanitized.type,
+              ...(sanitized.description && { description: sanitized.description })
+            }
+          },
+          required: ['value']
+        };
+      } else {
+        sanitized.type = 'object';
+      }
+    }
+    
+    if (sanitized.type === 'object' && !sanitized.properties) {
+      sanitized.properties = {};
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Recursively sanitizes schema properties for OpenAI compatibility
+   */
+  private sanitizeSchemaRecursively(schema: any): void {
+    if (!schema || typeof schema !== 'object') {
+      return;
+    }
+
+    // Fix nested type definitions like {'type': {'type': 'string'}}
+    if (schema.type && typeof schema.type === 'object' && (schema.type as any).type) {
+      schema.type = (schema.type as any).type;
+    }
+
+    // Convert string type definitions to proper schemas
+    for (const [key, value] of Object.entries(schema)) {
+      if (typeof value === 'string') {
+        const lowerValue = value.toLowerCase();
+        if (['string', 'number', 'boolean', 'array', 'object'].includes(lowerValue)) {
+          schema[key] = { type: lowerValue };
+        }
+      } else if (Array.isArray(value)) {
+        // Handle arrays of schemas
+        for (let i = 0; i < value.length; i++) {
+          if (typeof value[i] === 'string') {
+            const lowerValue = value[i].toLowerCase();
+            if (['string', 'number', 'boolean', 'array', 'object'].includes(lowerValue)) {
+              value[i] = { type: lowerValue };
+            }
+          } else if (typeof value[i] === 'object') {
+            this.sanitizeSchemaRecursively(value[i]);
+          }
+        }
+              } else if (typeof value === 'object' && value !== null) {
+          // Fix nested type issues before recursion
+          if (key === 'type' && (value as any).type) {
+            schema[key] = (value as any).type;
+          } else {
+            this.sanitizeSchemaRecursively(value);
+          }
+        }
+    }
+
+    // Handle special cases for OpenAI compatibility
+    if (schema.properties) {
+      this.sanitizeSchemaRecursively(schema.properties);
+    }
+    if (schema.items) {
+      this.sanitizeSchemaRecursively(schema.items);
+    }
+    if (schema.anyOf) {
+      for (const item of schema.anyOf) {
+        this.sanitizeSchemaRecursively(item);
+      }
+    }
+    if (schema.oneOf) {
+      for (const item of schema.oneOf) {
+        this.sanitizeSchemaRecursively(item);
+      }
+    }
+    if (schema.allOf) {
+      for (const item of schema.allOf) {
+        this.sanitizeSchemaRecursively(item);
+      }
+    }
+
+    // Additional cleanup for common OpenAI schema issues
+    this.fixCommonSchemaIssues(schema);
+  }
+
+  /**
+   * Fixes common schema issues for OpenAI compatibility
+   */
+  private fixCommonSchemaIssues(schema: any): void {
+    if (!schema || typeof schema !== 'object') {
+      return;
+    }
+
+    // Ensure type is a string, not an object
+    if (schema.type && typeof schema.type === 'object') {
+      if (schema.type.type && typeof schema.type.type === 'string') {
+        schema.type = schema.type.type;
+      } else {
+        schema.type = 'object';
+      }
+    }
+
+    // Fix invalid type values
+    if (schema.type && typeof schema.type === 'string') {
+      const validTypes = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
+      if (!validTypes.includes(schema.type.toLowerCase())) {
+        schema.type = 'object';
+      }
+    }
+
+    // Ensure properties is an object
+    if (schema.properties && typeof schema.properties !== 'object') {
+      schema.properties = {};
+    }
+
+    // Ensure items is an object for array types
+    if (schema.type === 'array' && schema.items && typeof schema.items !== 'object') {
+      schema.items = { type: 'object' };
+    }
+
+    // Remove unsupported properties that might cause issues
+    const unsupportedProps = ['$schema', '$id', 'definitions', '$defs'];
+    for (const prop of unsupportedProps) {
+      if (schema[prop]) {
+        delete schema[prop];
+      }
+    }
   }
 
   private convertFromOpenAIFormat(
