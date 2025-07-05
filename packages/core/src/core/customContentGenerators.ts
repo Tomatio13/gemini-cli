@@ -265,11 +265,19 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
       ];
     }
 
+    const model = request.model || this.config.model;
+    
+    // Determine which token parameter to use based on model
+    const maxTokensParam = this.shouldUseMaxCompletionTokens(model) ? 'max_completion_tokens' : 'max_tokens';
+    
+    // Determine temperature based on model constraints
+    const temperature = this.getTemperatureForModel(model, request.config?.temperature);
+    
     const openAIRequest: any = {
-      model: request.model || this.config.model,
+      model,
       messages,
-      temperature: request.config?.temperature || 0.7,
-      max_tokens: request.config?.maxOutputTokens || 2048,
+      temperature,
+      [maxTokensParam]: request.config?.maxOutputTokens || 2048,
       top_p: request.config?.topP || 1,
       stream: false,
     };
@@ -305,6 +313,55 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
     }
 
     return openAIRequest;
+  }
+
+  /**
+   * Determines whether to use max_completion_tokens or max_tokens based on the model
+   */
+  private shouldUseMaxCompletionTokens(model: string): boolean {
+    // GPT-4o and newer models require max_completion_tokens
+    const modelsRequiringMaxCompletionTokens = [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4o-2024-05-13',
+      'gpt-4o-2024-08-06',
+      'gpt-4o-mini-2024-07-18',
+      'o1-preview',
+      'o1-mini',
+      'chatgpt-4o-latest',
+      'o3',
+      'o3-mini',
+      'o3-mini-2025-06-12',
+      'o3-mini-2025-06-12'
+    ];
+    
+    return modelsRequiringMaxCompletionTokens.some(requiredModel => 
+      model.toLowerCase().includes(requiredModel.toLowerCase())
+    );
+  }
+
+  /**
+   * Determines the appropriate temperature for the model
+   */
+  private getTemperatureForModel(model: string, requestedTemperature?: number): number {
+    // o3 and o3-mini models require temperature to be 1 (fixed)
+    const thinkingModels = [
+      'o3',
+      'o3-mini',
+      'o3-mini-2025-06-12',
+      'o1-preview',
+      'o1-mini'
+    ];
+    
+    const isThinkingModel = thinkingModels.some(thinkingModel => 
+      model.toLowerCase().includes(thinkingModel.toLowerCase())
+    );
+    
+    if (isThinkingModel) {
+      return 1; // Fixed temperature for thinking models
+    }
+    
+    return requestedTemperature || 0.7; // Default or requested temperature for other models
   }
 
   /**
