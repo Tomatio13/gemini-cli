@@ -378,7 +378,7 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
     for (const [key, value] of Object.entries(schema)) {
       if (typeof value === 'string') {
         const lowerValue = value.toLowerCase();
-        if (['string', 'number', 'boolean', 'array', 'object'].includes(lowerValue)) {
+        if (['string', 'number', 'integer', 'boolean', 'array', 'object'].includes(lowerValue)) {
           schema[key] = { type: lowerValue };
         }
       } else if (Array.isArray(value)) {
@@ -386,21 +386,21 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
         for (let i = 0; i < value.length; i++) {
           if (typeof value[i] === 'string') {
             const lowerValue = value[i].toLowerCase();
-            if (['string', 'number', 'boolean', 'array', 'object'].includes(lowerValue)) {
+            if (['string', 'number', 'integer', 'boolean', 'array', 'object'].includes(lowerValue)) {
               value[i] = { type: lowerValue };
             }
           } else if (typeof value[i] === 'object') {
             this.sanitizeSchemaRecursively(value[i]);
           }
         }
-              } else if (typeof value === 'object' && value !== null) {
-          // Fix nested type issues before recursion
-          if (key === 'type' && (value as any).type) {
-            schema[key] = (value as any).type;
-          } else {
-            this.sanitizeSchemaRecursively(value);
-          }
+      } else if (typeof value === 'object' && value !== null) {
+        // Fix nested type issues before recursion
+        if (key === 'type' && (value as any).type) {
+          schema[key] = (value as any).type;
+        } else {
+          this.sanitizeSchemaRecursively(value);
         }
+      }
     }
 
     // Handle special cases for OpenAI compatibility
@@ -447,10 +447,13 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
       }
     }
 
-    // Fix invalid type values
+    // Fix invalid type values and normalize case
     if (schema.type && typeof schema.type === 'string') {
+      const normalizedType = schema.type.toLowerCase();
       const validTypes = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
-      if (!validTypes.includes(schema.type.toLowerCase())) {
+      if (validTypes.includes(normalizedType)) {
+        schema.type = normalizedType; // 正規化された型を設定
+      } else {
         schema.type = 'object';
       }
     }
