@@ -244,33 +244,46 @@ export const useGeminiStream = (
             scheduleToolCalls([toolCallRequest], abortSignal);
           }
           return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
-        }
-
-        if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
-          return { queryToSend: null, shouldProceed: false };
-        }
-
-        // Handle @-commands (which might involve tool calls)
-        if (isAtCommand(trimmedQuery)) {
-          const atCommandResult = await handleAtCommand({
-            query: trimmedQuery,
-            config,
-            addItem,
-            onDebugMessage,
-            messageId: userMessageTimestamp,
-            signal: abortSignal,
-          });
-          if (!atCommandResult.shouldProceed) {
-            return { queryToSend: null, shouldProceed: false };
-          }
-          localQueryToSendToGemini = atCommandResult.processedQuery;
-        } else {
-          // Normal query for Gemini
+        } else if (
+          typeof slashCommandResult === 'object' &&
+          slashCommandResult.message
+        ) {
+          // Custom slash command wants to send a message to LLM
           addItem(
             { type: MessageType.USER, text: trimmedQuery },
             userMessageTimestamp,
           );
-          localQueryToSendToGemini = trimmedQuery;
+          localQueryToSendToGemini = slashCommandResult.message;
+        }
+
+        // Only proceed with other processing if slash command didn't handle it
+        if (localQueryToSendToGemini === null) {
+          if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
+            return { queryToSend: null, shouldProceed: false };
+          }
+
+          // Handle @-commands (which might involve tool calls)
+          if (isAtCommand(trimmedQuery)) {
+            const atCommandResult = await handleAtCommand({
+              query: trimmedQuery,
+              config,
+              addItem,
+              onDebugMessage,
+              messageId: userMessageTimestamp,
+              signal: abortSignal,
+            });
+            if (!atCommandResult.shouldProceed) {
+              return { queryToSend: null, shouldProceed: false };
+            }
+            localQueryToSendToGemini = atCommandResult.processedQuery;
+          } else {
+            // Normal query for Gemini
+            addItem(
+              { type: MessageType.USER, text: trimmedQuery },
+              userMessageTimestamp,
+            );
+            localQueryToSendToGemini = trimmedQuery;
+          }
         }
       } else {
         // It's a function response (PartListUnion that isn't a string)

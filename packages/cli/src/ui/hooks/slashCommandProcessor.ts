@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { type PartListUnion } from '@google/genai';
 import open from 'open';
 import process from 'node:process';
@@ -33,6 +33,12 @@ import { GIT_COMMIT_INFO } from '../../generated/git-commit.js';
 import { formatDuration, formatMemoryUsage } from '../utils/formatters.js';
 import { getCliVersion } from '../../utils/version.js';
 import { LoadedSettings } from '../../config/settings.js';
+import { 
+  discoverCustomSlashCommands, 
+  createCustomSlashCommands, 
+  CustomSlashCommandContext,
+  CustomSlashCommandFile
+} from './customSlashCommands.js';
 
 export interface SlashCommandActionReturn {
   shouldScheduleTool?: boolean;
@@ -86,6 +92,24 @@ export const useSlashCommandProcessor = (
     return new GitService(config.getProjectRoot());
   }, [config]);
 
+  // State for custom slash commands
+  const [customCommands, setCustomCommands] = useState<CustomSlashCommandFile[]>([]);
+
+  // Load custom commands on mount
+  useEffect(() => {
+    onDebugMessage('Loading custom slash commands...');
+    discoverCustomSlashCommands()
+      .then(commands => {
+        onDebugMessage(`Discovered ${commands.length} custom slash commands`);
+        commands.forEach(cmd => {
+          onDebugMessage(`  - ${cmd.namespace ? `${cmd.namespace}:` : ''}${cmd.name}: ${cmd.metadata.description || 'No description'}`);
+        });
+        setCustomCommands(commands);
+      })
+      .catch(error => {
+        onDebugMessage(`Failed to load custom slash commands: ${error.message}`);
+      });
+  }, [onDebugMessage]);
   const pendingHistoryItems: HistoryItemWithoutId[] = [];
   const [pendingCompressionItemRef, setPendingCompressionItem] =
     useStateAndRef<HistoryItemWithoutId | null>(null);
@@ -1034,6 +1058,25 @@ export const useSlashCommandProcessor = (
         },
       });
     }
+
+    // Add custom slash commands
+    const customCommandContext: CustomSlashCommandContext = {
+      addMessage: (message) => {
+        addMessage({
+          type: message.type === 'info' ? MessageType.INFO : 
+                message.type === 'error' ? MessageType.ERROR : 
+                MessageType.USER,
+          content: message.content,
+          timestamp: message.timestamp,
+        });
+      },
+      config: config || undefined,
+      onDebugMessage,
+    };
+
+    const customSlashCommands = createCustomSlashCommands(customCommands, customCommandContext);
+    commands.push(...customSlashCommands);
+
     return commands;
   }, [
     onDebugMessage,
@@ -1060,6 +1103,7 @@ export const useSlashCommandProcessor = (
     pendingCompressionItemRef,
     setPendingCompressionItem,
     openPrivacyNotice,
+    customCommands,
   ]);
 
   const handleSlashCommand = useCallback(
