@@ -1153,6 +1153,17 @@ export const useSlashCommandProcessor = (
           ) {
             return actionResult; // Return the object for useGeminiStream
           }
+          if (
+            typeof actionResult === 'object' &&
+            actionResult?.message
+          ) {
+            // For custom commands that return processed content as message,
+            // return a special action to trigger LLM conversation with the processed content
+            return {
+              shouldScheduleTool: false,
+              message: actionResult.message,
+            };
+          }
           return true; // Command was handled, but no tool to schedule
         }
       }

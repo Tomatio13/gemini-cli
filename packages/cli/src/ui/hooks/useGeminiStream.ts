@@ -248,15 +248,18 @@ export const useGeminiStream = (
           typeof slashCommandResult === 'object' &&
           slashCommandResult.message
         ) {
-          // Custom slash command wants to send a message to LLM
+          // Custom slash command returned processed content as message
+          // Add it as a user message and treat it as a normal query to send to LLM
+          onDebugMessage(`Custom command processed content: '${slashCommandResult.message}'`);
+          await logger?.logMessage(MessageSenderType.USER, slashCommandResult.message);
           addItem(
-            { type: MessageType.USER, text: trimmedQuery },
+            { type: MessageType.USER, text: slashCommandResult.message },
             userMessageTimestamp,
           );
           localQueryToSendToGemini = slashCommandResult.message;
         }
 
-        // Only proceed with other processing if slash command didn't handle it
+        // If localQueryToSendToGemini is already set by custom command, skip other processing
         if (localQueryToSendToGemini === null) {
           if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
             return { queryToSend: null, shouldProceed: false };

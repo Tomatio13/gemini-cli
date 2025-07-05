@@ -156,7 +156,7 @@ This is a test command with metadata.`);
       expect(result[0].description).toBe('Git commit helper');
     });
 
-    it('should execute command action and return message for LLM', async () => {
+    it('should execute command action and add message', async () => {
       const customCommands = [
         {
           name: 'test-command',
@@ -167,11 +167,12 @@ This is a test command with metadata.`);
       ];
 
       const result = createCustomSlashCommands(customCommands, mockContext);
-      const actionResult = await result[0].action('user:test-command');
+      await result[0].action('user:test-command');
 
-      expect(actionResult).toEqual({
-        shouldScheduleTool: false,
-        message: 'Hello, world!',
+      expect(mockContext.addMessage).toHaveBeenCalledWith({
+        type: 'user',
+        content: 'Hello, world!',
+        timestamp: expect.any(Date),
       });
     });
 
@@ -186,11 +187,12 @@ This is a test command with metadata.`);
       ];
 
       const result = createCustomSlashCommands(customCommands, mockContext);
-      const actionResult = await result[0].action('user:greet', undefined, 'John');
+      await result[0].action('user:greet', undefined, 'John');
 
-      expect(actionResult).toEqual({
-        shouldScheduleTool: false,
-        message: 'Hello, John!',
+      expect(mockContext.addMessage).toHaveBeenCalledWith({
+        type: 'user',
+        content: 'Hello, John!',
+        timestamp: expect.any(Date),
       });
     });
   });

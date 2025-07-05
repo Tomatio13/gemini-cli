@@ -226,10 +226,16 @@ export function createCustomSlashCommands(
         try {
           const processedContent = await processDynamicContent(command.content, context, args);
           
-          // カスタムコマンドの処理済みコンテンツをLLMに送信するように返す
+          // Add the processed content as a user message to trigger LLM conversation
+          context.addMessage({
+            type: 'user',
+            content: processedContent,
+            timestamp: new Date(),
+          });
+          
+          // Return message to indicate the command was processed and sent to LLM
           return {
-            shouldScheduleTool: false,
-            message: processedContent, // LLMに送信するコンテンツ
+            message: processedContent,
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -238,8 +244,9 @@ export function createCustomSlashCommands(
             content: `Failed to execute custom command '${commandName}': ${errorMessage}`,
             timestamp: new Date(),
           });
+          
           return {
-            shouldScheduleTool: false,
+            message: `Error: ${errorMessage}`,
           };
         }
       },
