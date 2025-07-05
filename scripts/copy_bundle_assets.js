@@ -31,21 +31,23 @@ if (!existsSync(bundleDir)) {
   mkdirSync(bundleDir);
 }
 
-// Copy specific shell files to the root of the bundle directory
-copyFileSync(
-  join(root, 'packages/core/src/tools/shell.md'),
-  join(bundleDir, 'shell.md'),
-);
-copyFileSync(
-  join(root, 'packages/core/src/tools/shell.json'),
-  join(bundleDir, 'shell.json'),
-);
+// Copy specific shell files to the root of the bundle directory (if they exist)
+const shellMdPath = join(root, 'packages/core/src/tools/shell.md');
+const shellJsonPath = join(root, 'packages/core/src/tools/shell.json');
+
+if (existsSync(shellMdPath)) {
+  copyFileSync(shellMdPath, join(bundleDir, 'shell.md'));
+}
+
+if (existsSync(shellJsonPath)) {
+  copyFileSync(shellJsonPath, join(bundleDir, 'shell.json'));
+}
 
 // Copy ja.json for i18n
-copyFileSync(
-  join(root, 'packages/cli/src/ui/i18n/ja.json'),
-  join(bundleDir, 'ja.json'),
-);
+const jaJsonPath = join(root, 'packages/cli/src/ui/i18n/ja.json');
+if (existsSync(jaJsonPath)) {
+  copyFileSync(jaJsonPath, join(bundleDir, 'ja.json'));
+}
 // Find and copy all .sb files from packages to the root of the bundle directory
 const sbFiles = glob.sync('packages/**/*.sb', { cwd: root });
 for (const file of sbFiles) {
