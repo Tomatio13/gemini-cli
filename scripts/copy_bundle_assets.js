@@ -46,7 +46,6 @@ copyFileSync(
   join(root, 'packages/cli/src/ui/i18n/ja.json'),
   join(bundleDir, 'ja.json'),
 );
-
 // Find and copy all .sb files from packages to the root of the bundle directory
 const sbFiles = glob.sync('packages/**/*.sb', { cwd: root });
 for (const file of sbFiles) {

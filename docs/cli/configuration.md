@@ -34,13 +34,11 @@ In addition to a project settings file, a project's `.gemini` directory can cont
 ### Available settings in `settings.json`:
 
 - **`contextFileName`** (string or array of strings):
-
   - **Description:** Specifies the filename for context files (e.g., `GEMINI.md`, `AGENTS.md`). Can be a single filename or a list of accepted filenames.
   - **Default:** `GEMINI.md`
   - **Example:** `"contextFileName": "AGENTS.md"`
 
 - **`bugCommand`** (object):
-
   - **Description:** Overrides the default URL for the `/bug` command.
   - **Default:** `"urlTemplate": "https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title={title}&info={info}"`
   - **Properties:**
@@ -53,7 +51,6 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     ```
 
 - **`fileFiltering`** (object):
-
   - **Description:** Controls git-aware file filtering behavior for @ commands and file discovery tools.
   - **Default:** `"respectGitIgnore": true, "enableRecursiveFileSearch": true`
   - **Properties:**
@@ -68,43 +65,39 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     ```
 
 - **`coreTools`** (array of strings):
-
-  - **Description:** Allows you to specify a list of core tool names that should be made available to the model. This can be used to restrict the set of built-in tools. See [Built-in Tools](../core/tools-api.md#built-in-tools) for a list of core tools.
+  - **Description:** Allows you to specify a list of core tool names that should be made available to the model. This can be used to restrict the set of built-in tools. See [Built-in Tools](../core/tools-api.md#built-in-tools) for a list of core tools. You can also specify command-specific restrictions for tools that support it, like the `ShellTool`. For example, `"coreTools": ["ShellTool(ls -l)"]` will only allow the `ls -l` command to be executed.
   - **Default:** All tools available for use by the Gemini model.
-  - **Example:** `"coreTools": ["ReadFileTool", "GlobTool", "SearchText"]`.
+  - **Example:** `"coreTools": ["ReadFileTool", "GlobTool", "ShellTool(ls)"]`.
 
 - **`excludeTools`** (array of strings):
-
-  - **Description:** Allows you to specify a list of core tool names that should be excluded from the model. A tool listed in both `excludeTools` and `coreTools` is excluded.
+  - **Description:** Allows you to specify a list of core tool names that should be excluded from the model. A tool listed in both `excludeTools` and `coreTools` is excluded. You can also specify command-specific restrictions for tools that support it, like the `ShellTool`. For example, `"excludeTools": ["ShellTool(rm -rf)"]` will block the `rm -rf` command.
   - **Default**: No tools excluded.
   - **Example:** `"excludeTools": ["run_shell_command", "findFiles"]`.
+  - **Security Note:** Command-specific restrictions in
+    `excludeTools` for `run_shell_command` are based on simple string matching and can be easily bypassed. This feature is **not a security mechanism** and should not be relied upon to safely execute untrusted code. It is recommended to use `coreTools` to explicitly select commands
+    that can be executed.
 
 - **`autoAccept`** (boolean):
-
   - **Description:** Controls whether the CLI automatically accepts and executes tool calls that are considered safe (e.g., read-only operations) without explicit user confirmation. If set to `true`, the CLI will bypass the confirmation prompt for tools deemed safe.
   - **Default:** `false`
   - **Example:** `"autoAccept": true`
 
 - **`theme`** (string):
-
   - **Description:** Sets the visual [theme](./themes.md) for Gemini CLI.
   - **Default:** `"Default"`
   - **Example:** `"theme": "GitHub"`
 
 - **`sandbox`** (boolean or string):
-
   - **Description:** Controls whether and how to use sandboxing for tool execution. If set to `true`, Gemini CLI uses a pre-built `gemini-cli-sandbox` Docker image. For more information, see [Sandboxing](#sandboxing).
   - **Default:** `false`
   - **Example:** `"sandbox": "docker"`
 
 - **`toolDiscoveryCommand`** (string):
-
   - **Description:** Defines a custom shell command for discovering tools from your project. The shell command must return on `stdout` a JSON array of [function declarations](https://ai.google.dev/gemini-api/docs/function-calling#function-declarations). Tool wrappers are optional.
   - **Default:** Empty
   - **Example:** `"toolDiscoveryCommand": "bin/get_tools"`
 
 - **`toolCallCommand`** (string):
-
   - **Description:** Defines a custom shell command for calling a specific tool that was discovered using `toolDiscoveryCommand`. The shell command must meet the following criteria:
     - It must take function `name` (exactly as in [function declaration](https://ai.google.dev/gemini-api/docs/function-calling#function-declarations)) as first command line argument.
     - It must read function arguments as JSON on `stdin`, analogous to [`functionCall.args`](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#functioncall).
@@ -113,7 +106,6 @@ In addition to a project settings file, a project's `.gemini` directory can cont
   - **Example:** `"toolCallCommand": "bin/call_tool"`
 
 - **`mcpServers`** (object):
-
   - **Description:** Configures connections to one or more Model-Context Protocol (MCP) servers for discovering and using custom tools. Gemini CLI attempts to connect to each configured MCP server to discover available tools. If multiple MCP servers expose a tool with the same name, the tool names will be prefixed with the server alias you defined in the configuration (e.g., `serverAlias__actualToolName`) to avoid conflicts. Note that the system might strip certain schema properties from MCP tool definitions for compatibility.
   - **Default:** Empty
   - **Properties:**
@@ -149,14 +141,12 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     ```
 
 - **`checkpointing`** (object):
-
   - **Description:** Configures the checkpointing feature, which allows you to save and restore conversation and file states. See the [Checkpointing documentation](../checkpointing.md) for more details.
   - **Default:** `{"enabled": false}`
   - **Properties:**
     - **`enabled`** (boolean): When `true`, the `/restore` command is available.
 
 - **`preferredEditor`** (string):
-
   - **Description:** Specifies the preferred editor to use for viewing diffs.
   - **Default:** `vscode`
   - **Example:** `"preferredEditor": "vscode"`
@@ -186,6 +176,15 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     "usageStatisticsEnabled": false
     ```
 
+- **`hideTips`** (boolean):
+  - **Description:** Enables or disables helpful tips in the CLI interface.
+  - **Default:** `false`
+  - **Example:**
+
+    ```json
+    "hideTips": true
+    ```
+
 ### Example `settings.json`:
 
 ```json
@@ -209,7 +208,8 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     "otlpEndpoint": "http://localhost:4317",
     "logPrompts": true
   },
-  "usageStatisticsEnabled": true
+  "usageStatisticsEnabled": true,
+  "hideTips": false
 }
 ```
 
@@ -260,6 +260,29 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
   - Required for using Vertex AI in non express mode.
   - If using Vertex AI, ensure you have the necessary permissions and set the `GOOGLE_GENAI_USE_VERTEXAI=true` environment variable.
   - Example: `export GOOGLE_CLOUD_LOCATION="YOUR_PROJECT_LOCATION"`.
+
+### Custom Model Provider Environment Variables
+
+- **`OPENAI_API_KEY`**:
+  - Your OpenAI API key for using OpenAI models or OpenAI-compatible APIs.
+  - Required when using `--auth-type openai-compatible`.
+  - Example: `export OPENAI_API_KEY="sk-your-openai-key"`
+- **`ANTHROPIC_API_KEY`**:
+  - Your Anthropic API key for using Claude models.
+  - Required when using `--auth-type anthropic`.
+  - Example: `export ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"`
+- **`LOCAL_LLM_API_KEY`**:
+  - API key for local LLM endpoints (can be dummy value for most local setups).
+  - Used with `--auth-type local-llm`.
+  - Example: `export LOCAL_LLM_API_KEY="dummy-key"`
+- **`CUSTOM_BASE_URL`**:
+  - Custom base URL for API endpoints.
+  - Used to point to local LLM servers or alternative API endpoints.
+  - Example: `export CUSTOM_BASE_URL="http://localhost:11434/v1"`
+- **`CUSTOM_TIMEOUT`**:
+  - Request timeout in milliseconds for API calls.
+  - Useful for local LLMs that may take longer to respond.
+  - Example: `export CUSTOM_TIMEOUT="60000"`
 - **`GEMINI_SANDBOX`**:
   - Alternative to the `sandbox` setting in `settings.json`.
   - Accepts `true`, `false`, `docker`, `podman`, or a custom command string.

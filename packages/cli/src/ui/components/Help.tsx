@@ -99,9 +99,11 @@ export const Help = ({ commands }: Help) => {
       </Text>
       <Text color={Colors.Foreground}>
         <Text bold color={Colors.AccentPurple}>
-          Shift+Enter
+          {process.platform === 'win32' ? 'Ctrl+Enter' : 'Ctrl+J'}
         </Text>{' '}
-        - {t('New line')}
+        {process.platform === 'linux'
+          ? '- ' + t('New line (Alt+Enter works for certain linux distros)')
+          : '- ' + t('New line')}
       </Text>
       <Text color={Colors.Foreground}>
         <Text bold color={Colors.AccentPurple}>
@@ -114,6 +116,12 @@ export const Help = ({ commands }: Help) => {
           Alt+Left/Right
         </Text>{' '}
         - {t('Jump through words in the input')}
+      </Text>
+      <Text color={Colors.Foreground}>
+        <Text bold color={Colors.AccentPurple}>
+          Shift+Tab
+        </Text>{' '}
+        - {t('Toggle auto-accepting edits')}
       </Text>
       <Text color={Colors.Foreground}>
         <Text bold color={Colors.AccentPurple}>

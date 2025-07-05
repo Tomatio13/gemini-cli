@@ -23,8 +23,6 @@ interface FooterProps {
   showErrorDetails: boolean;
   showMemoryUsage?: boolean;
   promptTokenCount: number;
-  candidatesTokenCount: number;
-  totalTokenCount: number;
 }
 
 export const Footer = ({
@@ -37,11 +35,11 @@ export const Footer = ({
   errorCount,
   showErrorDetails,
   showMemoryUsage,
-  totalTokenCount,
+  promptTokenCount,
 }: FooterProps) => {
   const { t } = useTranslation();
   const limit = tokenLimit(model);
-  const percentage = totalTokenCount / limit;
+  const percentage = promptTokenCount / limit;
 
   return (
     <Box marginTop={1} justifyContent="space-between" width="100%">

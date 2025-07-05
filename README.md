@@ -38,9 +38,9 @@ With the Gemini CLI you can:
 
 You are now ready to use the Gemini CLI!
 
-### For advanced use or increased limits:
+### Use a Gemini API key:
 
-If you need to use a specific model or require a higher request capacity, you can use an API key:
+The Gemini API provides a free tier with [100 requests per day](https://ai.google.dev/gemini-api/docs/rate-limits#free-tier) using Gemini 2.5 Pro, control over which model you use, and access to higher rate limits (with a paid plan):
 
 1. Generate a key from [Google AI Studio](https://aistudio.google.com/apikey).
 2. Set it as an environment variable in your terminal. Replace `YOUR_API_KEY` with your generated key.
@@ -49,7 +49,62 @@ If you need to use a specific model or require a higher request capacity, you ca
    export GEMINI_API_KEY="YOUR_API_KEY"
    ```
 
+3. (Optionally) Upgrade your Gemini API project to a paid plan on the API key page (will automatically unlock [Tier 1 rate limits](https://ai.google.dev/gemini-api/docs/rate-limits#tier-1))
+
 For other authentication methods, including Google Workspace accounts, see the [authentication](./docs/cli/authentication.md) guide.
+
+### Use OpenAI or other compatible APIs:
+
+The Gemini CLI also supports OpenAI-compatible APIs, including OpenAI, Ollama, and other local models:
+
+#### OpenAI API:
+1. Get your API key from [OpenAI](https://platform.openai.com/api-keys).
+2. Set the environment variable:
+   ```bash
+   export OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+   ```
+3. Run with OpenAI:
+   ```bash
+   gemini --auth-type openai-compatible --model gpt-4o
+   ```
+
+#### Ollama (Local Models):
+1. Install and start [Ollama](https://ollama.ai/).
+2. Pull a model (e.g., `ollama pull llama3.2`).
+3. Set the environment variables:
+   ```bash
+   export CUSTOM_BASE_URL="http://localhost:11434/v1"
+   export LOCAL_LLM_API_KEY="dummy-key"
+   ```
+4. Run with Ollama:
+   ```bash
+   gemini --auth-type local-llm --model llama3.2
+   ```
+
+#### Anthropic Claude API:
+1. Get your API key from [Anthropic](https://console.anthropic.com/).
+2. Set the environment variable:
+   ```bash
+   export ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
+   ```
+3. Run with Claude:
+   ```bash
+   gemini --auth-type anthropic --model claude-3-5-sonnet-20241022
+   ```
+
+#### Other OpenAI-Compatible APIs:
+For other providers like local deployments or cloud services:
+1. Set the environment variables:
+   ```bash
+   export OPENAI_API_KEY="YOUR_API_KEY"
+   export CUSTOM_BASE_URL="YOUR_API_ENDPOINT"
+   ```
+2. Run with the provider:
+   ```bash
+   gemini --auth-type openai-compatible --model MODEL_NAME
+   ```
+
+You can also configure these settings in your configuration file. See the [authentication guide](./docs/cli/authentication.md) for more details.
 
 ## Examples
 
@@ -130,6 +185,10 @@ Use MCP servers to integrate your local system tools with your enterprise collab
 ```text
 > Organise my PDF invoices by month of expenditure.
 ```
+
+### Uninstall
+
+Head over to the [Uninstall](docs/Uninstall.md) guide for uninstallation instructions.
 
 ## Terms of Service and Privacy Notice
 

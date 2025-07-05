@@ -53,6 +53,7 @@ interface CliArgs {
   telemetryTarget: string | undefined;
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
+  'auth-type': string | undefined;
 }
 
 async function parseArguments(): Promise<CliArgs> {
@@ -128,6 +129,11 @@ async function parseArguments(): Promise<CliArgs> {
       description: 'Enables checkpointing of file edits',
       default: false,
     })
+    .option('auth-type', {
+      type: 'string',
+      description: 'Authentication type (oauth-personal, gemini-api-key, vertex-ai, openai-compatible, anthropic, local-llm)',
+      choices: ['oauth-personal', 'gemini-api-key', 'vertex-ai', 'openai-compatible', 'anthropic', 'local-llm'],
+    })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -135,6 +141,10 @@ async function parseArguments(): Promise<CliArgs> {
     .strict().argv;
 
   return argv;
+}
+
+export async function getCliArguments(): Promise<CliArgs> {
+  return await parseArguments();
 }
 
 // This function is now a thin wrapper around the server's implementation.
@@ -194,6 +204,7 @@ export async function loadCliConfig(
   );
 
   const mcpServers = mergeMcpServers(settings, extensions);
+  const excludeTools = mergeExcludeTools(settings, extensions);
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
@@ -206,7 +217,7 @@ export async function loadCliConfig(
     question: argv.prompt || '',
     fullContext: argv.all_files || false,
     coreTools: settings.coreTools || undefined,
-    excludeTools: settings.excludeTools || undefined,
+    excludeTools,
     toolDiscoveryCommand: settings.toolDiscoveryCommand,
     toolCallCommand: settings.toolCallCommand,
     mcpServerCommand: settings.mcpServerCommand,
@@ -265,6 +276,20 @@ function mergeMcpServers(settings: Settings, extensions: Extension[]) {
   }
   return mcpServers;
 }
+
+function mergeExcludeTools(
+  settings: Settings,
+  extensions: Extension[],
+): string[] {
+  const allExcludeTools = new Set(settings.excludeTools || []);
+  for (const extension of extensions) {
+    for (const tool of extension.config.excludeTools || []) {
+      allExcludeTools.add(tool);
+    }
+  }
+  return [...allExcludeTools];
+}
+
 function findEnvFile(startDir: string): string | null {
   let currentDir = path.resolve(startDir);
   while (true) {
@@ -297,6 +322,6 @@ function findEnvFile(startDir: string): string | null {
 export function loadEnvironment(): void {
   const envFilePath = findEnvFile(process.cwd());
   if (envFilePath) {
-    dotenv.config({ path: envFilePath });
+    dotenv.config({ path: envFilePath, quiet: true });
   }
 }

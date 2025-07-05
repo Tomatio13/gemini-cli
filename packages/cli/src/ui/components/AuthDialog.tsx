@@ -14,15 +14,13 @@ import { AuthType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
 
 interface AuthDialogProps {
-  onSelect: (authMethod: string | undefined, scope: SettingScope) => void;
-  onHighlight: (authMethod: string | undefined) => void;
+  onSelect: (authMethod: AuthType | undefined, scope: SettingScope) => void;
   settings: LoadedSettings;
   initialErrorMessage?: string | null;
 }
 
 export function AuthDialog({
   onSelect,
-  onHighlight,
   settings,
   initialErrorMessage,
 }: AuthDialogProps): React.JSX.Element {
@@ -33,10 +31,13 @@ export function AuthDialog({
   const items = [
     {
       label: t('Login with Google'),
-      value: AuthType.LOGIN_WITH_GOOGLE_PERSONAL,
+      value: AuthType.LOGIN_WITH_GOOGLE,
     },
     { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
     { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
+    { label: t('OpenAI Compatible'), value: AuthType.USE_OPENAI_COMPATIBLE },
+    { label: t('Anthropic Claude'), value: AuthType.USE_ANTHROPIC },
+    { label: t('Local LLM'), value: AuthType.USE_LOCAL_LLM },
   ];
   let initialAuthIndex = items.findIndex(
     (item) => item.value === settings.merged.selectedAuthType,
@@ -46,7 +47,7 @@ export function AuthDialog({
     initialAuthIndex = 0;
   }
 
-  const handleAuthSelect = (authMethod: string) => {
+  const handleAuthSelect = (authMethod: AuthType) => {
     const error = validateAuthMethod(authMethod);
     if (error) {
       setErrorMessage(error);
@@ -84,7 +85,6 @@ export function AuthDialog({
         items={items}
         initialIndex={initialAuthIndex}
         onSelect={handleAuthSelect}
-        onHighlight={onHighlight}
         isFocused={true}
       />
       {errorMessage && (
