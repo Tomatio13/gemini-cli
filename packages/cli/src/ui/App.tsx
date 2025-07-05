@@ -67,6 +67,7 @@ import {
 import { useGitBranchName } from './hooks/useGitBranchName.js';
 import { useBracketedPaste } from './hooks/useBracketedPaste.js';
 import { useTextBuffer } from './components/shared/text-buffer.js';
+import { useIdleStopHook } from './hooks/useIdleStopHook.js';
 import * as fs from 'fs';
 import { UpdateNotification } from './components/UpdateNotification.js';
 import { checkForUpdates } from './utils/updateCheck.js';
@@ -427,6 +428,9 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   const { elapsedTime, currentLoadingPhrase } =
     useLoadingIndicator(streamingState);
   const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
+
+  // Execute Stop hooks when AI responses complete (IDLE state)
+  useIdleStopHook(streamingState, config);
 
   const handleFinalSubmit = useCallback(
     (submittedValue: string) => {

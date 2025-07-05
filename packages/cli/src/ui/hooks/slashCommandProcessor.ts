@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { type PartListUnion } from '@google/genai';
 import open from 'open';
 import process from 'node:process';
@@ -87,6 +87,8 @@ export const useSlashCommandProcessor = (
     }
     return new GitService(config.getProjectRoot());
   }, [config]);
+
+
 
   const pendingHistoryItems: HistoryItemWithoutId[] = [];
   const [pendingCompressionItemRef, setPendingCompressionItem] =
@@ -844,6 +846,7 @@ export const useSlashCommandProcessor = (
           const now = new Date();
           const { sessionStartTime } = session.stats;
           const wallDuration = now.getTime() - sessionStartTime.getTime();
+          const durationString = formatDuration(wallDuration);
 
           setQuittingMessages([
             {
@@ -853,14 +856,14 @@ export const useSlashCommandProcessor = (
             },
             {
               type: 'quit',
-              duration: formatDuration(wallDuration),
+              duration: durationString,
               id: now.getTime(),
             },
           ]);
 
-          setTimeout(() => {
-            process.exit(0);
-          }, 100);
+          // Exit immediately without running Stop hooks
+          // Stop hooks are executed when AI responses complete (IDLE state)
+          process.exit(0);
         },
       },
       {
