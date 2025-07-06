@@ -1,0 +1,47 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file|edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[HOOK] Pre-tool execution check for file operations' >&2",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command", 
+            "command": "echo '[HOOK] Tool execution completed' >&2"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[HOOK] Notification: $1' >&2"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[HOOK] Session ending - goodbye!' >&2"
+          }
+        ]
+      }
+    ]
+  },
+  "debug": true
+} 

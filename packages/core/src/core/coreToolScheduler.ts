@@ -27,6 +27,7 @@ import {
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
 import * as Diff from 'diff';
+import { HookExecutor, HookInput, HookSettings } from '../hooks/hookExecutor.js';
 
 export type ValidatingToolCall = {
   status: 'validating';
@@ -221,6 +222,7 @@ interface CoreToolSchedulerOptions {
   approvalMode?: ApprovalMode;
   getPreferredEditor: () => EditorType | undefined;
   config: Config;
+  hookExecutor?: HookExecutor;
 }
 
 export class CoreToolScheduler {
@@ -232,6 +234,7 @@ export class CoreToolScheduler {
   private approvalMode: ApprovalMode;
   private getPreferredEditor: () => EditorType | undefined;
   private config: Config;
+  private hookExecutor?: HookExecutor;
 
   constructor(options: CoreToolSchedulerOptions) {
     this.config = options.config;
@@ -241,6 +244,7 @@ export class CoreToolScheduler {
     this.onToolCallsUpdate = options.onToolCallsUpdate;
     this.approvalMode = options.approvalMode ?? ApprovalMode.DEFAULT;
     this.getPreferredEditor = options.getPreferredEditor;
+    this.hookExecutor = options.hookExecutor;
   }
 
   private setStatusInternal(
@@ -445,6 +449,42 @@ export class CoreToolScheduler {
 
       const { request: reqInfo, tool: toolInstance } = toolCall;
       try {
+        // Execute PreToolUse hooks
+        if (this.hookExecutor) {
+          const hookInput: HookInput = {
+            session_id: this.config.getSessionId(),
+            transcript_path: await this.config.getTranscriptPath(),
+            tool_name: reqInfo.name,
+            tool_input: reqInfo.args,
+          };
+
+          try {
+            const hookResults = await this.hookExecutor.executeHooks(
+              'PreToolUse',
+              hookInput,
+              { cwd: this.config.getTargetDir() }
+            );
+
+            const blockResult = HookExecutor.shouldBlock(hookResults);
+            if (blockResult.block) {
+              this.setStatusInternal(
+                reqInfo.callId,
+                'error',
+                createErrorResponse(
+                  reqInfo,
+                  new Error(blockResult.reason || 'Hook blocked tool execution'),
+                ),
+              );
+              continue;
+            }
+          } catch (hookError) {
+            // Hook execution failed, but don't block the tool
+            if (this.config.getDebugMode()) {
+              console.warn(`[DEBUG] PreToolUse hook failed: ${hookError}`);
+            }
+          }
+        }
+
         if (this.approvalMode === ApprovalMode.YOLO) {
           this.setStatusInternal(reqInfo.callId, 'scheduled');
         } else {
@@ -646,7 +686,7 @@ export class CoreToolScheduler {
 
         scheduledCall.tool
           .execute(scheduledCall.request.args, signal, liveOutputCallback)
-          .then((toolResult: ToolResult) => {
+          .then(async (toolResult: ToolResult) => {
             if (signal.aborted) {
               this.setStatusInternal(
                 callId,
@@ -668,6 +708,39 @@ export class CoreToolScheduler {
               resultDisplay: toolResult.returnDisplay,
               error: undefined,
             };
+
+            // Execute PostToolUse hooks
+            if (this.hookExecutor) {
+              const hookInput: HookInput = {
+                session_id: this.config.getSessionId(),
+                transcript_path: await this.config.getTranscriptPath(),
+                tool_name: toolName,
+                tool_input: scheduledCall.request.args,
+                tool_response: {
+                  success: true,
+                  output: toolResult.returnDisplay,
+                },
+              };
+
+              try {
+                const hookResults = await this.hookExecutor.executeHooks(
+                  'PostToolUse',
+                  hookInput,
+                  { cwd: this.config.getTargetDir() }
+                );
+
+                // PostToolUse hooks can provide feedback but don't block
+                const blockResult = HookExecutor.shouldBlock(hookResults);
+                if (blockResult.block && this.config.getDebugMode()) {
+                  console.warn(`[DEBUG] PostToolUse hook provided feedback: ${blockResult.reason}`);
+                }
+              } catch (hookError) {
+                if (this.config.getDebugMode()) {
+                  console.warn(`[DEBUG] PostToolUse hook failed: ${hookError}`);
+                }
+              }
+            }
+
             this.setStatusInternal(callId, 'success', successResponse);
           })
           .catch((executionError: Error) => {

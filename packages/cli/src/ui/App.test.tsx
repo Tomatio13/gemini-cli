@@ -438,7 +438,7 @@ describe('App UI', () => {
       );
       currentUnmount = unmount;
 
-      expect(lastFrame()).toContain('Select Theme');
+      expect(lastFrame()).toContain('テーマを選択');
     });
 
     it('should display a message if NO_COLOR is set', async () => {

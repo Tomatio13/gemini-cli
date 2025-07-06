@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
@@ -23,18 +24,21 @@ export function AuthDialog({
   settings,
   initialErrorMessage,
 }: AuthDialogProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(
     initialErrorMessage || null,
   );
   const items = [
-    { label: 'Login with Google', value: AuthType.LOGIN_WITH_GOOGLE },
-    { label: 'Gemini API Key (AI Studio)', value: AuthType.USE_GEMINI },
-    { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
-    { label: 'OpenAI Compatible', value: AuthType.USE_OPENAI_COMPATIBLE },
-    { label: 'Anthropic Claude', value: AuthType.USE_ANTHROPIC },
-    { label: 'Local LLM', value: AuthType.USE_LOCAL_LLM },
+    {
+      label: t('Login with Google'),
+      value: AuthType.LOGIN_WITH_GOOGLE,
+    },
+    { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
+    { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
+    { label: t('OpenAI Compatible'), value: AuthType.USE_OPENAI_COMPATIBLE },
+    { label: t('Anthropic Claude'), value: AuthType.USE_ANTHROPIC },
+    { label: t('Local LLM'), value: AuthType.USE_LOCAL_LLM },
   ];
-
   let initialAuthIndex = items.findIndex(
     (item) => item.value === settings.merged.selectedAuthType,
   );
@@ -58,7 +62,9 @@ export function AuthDialog({
       if (settings.merged.selectedAuthType === undefined) {
         // Prevent exiting if no auth method is set
         setErrorMessage(
-          'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+          t(
+            'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+          ),
         );
         return;
       }
@@ -74,7 +80,7 @@ export function AuthDialog({
       padding={1}
       width="100%"
     >
-      <Text bold>Select Auth Method</Text>
+      <Text bold>{t('Select Auth Method')}</Text>
       <RadioButtonSelect
         items={items}
         initialIndex={initialAuthIndex}
@@ -87,7 +93,7 @@ export function AuthDialog({
         </Box>
       )}
       <Box marginTop={1}>
-        <Text color={Colors.Gray}>(Use Enter to select)</Text>
+        <Text color={Colors.Gray}>{t('(Use Enter to select)')}</Text>
       </Box>
       <Box marginTop={1}>
         <Text>Terms of Services and Privacy Notice for Gemini CLI</Text>

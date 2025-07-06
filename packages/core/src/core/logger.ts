@@ -293,4 +293,12 @@ export class Logger {
     this.sessionId = undefined;
     this.messageId = 0;
   }
+
+  /**
+   * Gets the path to the transcript file (log file)
+   * @returns The path to the transcript file, or empty string if not initialized
+   */
+  getTranscriptPath(): string {
+    return this.logFilePath || '';
+  }
 }

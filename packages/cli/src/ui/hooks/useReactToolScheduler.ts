@@ -21,6 +21,7 @@ import {
   ToolCall,
   Status as CoreStatus,
   EditorType,
+  HookExecutor,
 } from '@google/gemini-cli-core';
 import { useCallback, useState, useMemo } from 'react';
 import {
@@ -132,8 +133,15 @@ export function useReactToolScheduler(
   );
 
   const scheduler = useMemo(
-    () =>
-      new CoreToolScheduler({
+    () => {
+      // Create HookExecutor if hooks are configured
+      let hookExecutor;
+      const hooks = config.getHooks();
+      if (hooks && Object.keys(hooks).length > 0) {
+        hookExecutor = new HookExecutor(hooks, config.getDebugMode());
+      }
+
+      return new CoreToolScheduler({
         toolRegistry: config.getToolRegistry(),
         outputUpdateHandler,
         onAllToolCallsComplete: allToolCallsCompleteHandler,
@@ -141,7 +149,9 @@ export function useReactToolScheduler(
         approvalMode: config.getApprovalMode(),
         getPreferredEditor,
         config,
-      }),
+        hookExecutor,
+      });
+    },
     [
       config,
       outputUpdateHandler,

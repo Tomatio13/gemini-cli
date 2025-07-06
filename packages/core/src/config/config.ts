@@ -43,6 +43,8 @@ import {
   DEFAULT_GEMINI_FLASH_MODEL,
 } from './models.js';
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
+import { HookSettings } from '../hooks/hookExecutor.js';
+import { Logger } from '../core/logger.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -130,6 +132,7 @@ export interface ConfigParameters {
   bugCommand?: BugCommandSettings;
   model: string;
   extensionContextFilePaths?: string[];
+  hooks?: HookSettings;
 }
 
 export class Config {
@@ -170,6 +173,8 @@ export class Config {
   private readonly extensionContextFilePaths: string[];
   private modelSwitchedDuringSession: boolean = false;
   flashFallbackHandler?: FlashFallbackHandler;
+  private readonly hooks: HookSettings;
+  private logger?: Logger;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -211,6 +216,7 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
+    this.hooks = params.hooks ?? {};
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -443,6 +449,38 @@ export class Config {
 
   getExtensionContextFilePaths(): string[] {
     return this.extensionContextFilePaths;
+  }
+
+  getHooks(): HookSettings {
+    return this.hooks;
+  }
+
+  /**
+   * Gets or creates a Logger instance for this session
+   * @returns Promise<Logger> The logger instance
+   */
+  async getLogger(): Promise<Logger> {
+    if (!this.logger) {
+      this.logger = new Logger(this.sessionId);
+      await this.logger.initialize();
+    }
+    return this.logger;
+  }
+
+  /**
+   * Gets the transcript file path
+   * @returns Promise<string> The path to the transcript file, or empty string if not available
+   */
+  async getTranscriptPath(): Promise<string> {
+    try {
+      const logger = await this.getLogger();
+      return logger.getTranscriptPath();
+    } catch (error) {
+      if (this.debugMode) {
+        console.warn('[DEBUG] Failed to get transcript path:', error);
+      }
+      return '';
+    }
   }
 
   async getGitService(): Promise<GitService> {

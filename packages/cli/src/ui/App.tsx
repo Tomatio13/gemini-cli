@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import './i18n/config.js';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   DOMElement,
@@ -65,6 +67,7 @@ import {
 import { useGitBranchName } from './hooks/useGitBranchName.js';
 import { useBracketedPaste } from './hooks/useBracketedPaste.js';
 import { useTextBuffer } from './components/shared/text-buffer.js';
+import { useIdleStopHook } from './hooks/useIdleStopHook.js';
 import * as fs from 'fs';
 import { UpdateNotification } from './components/UpdateNotification.js';
 import { checkForUpdates } from './utils/updateCheck.js';
@@ -88,6 +91,7 @@ export const AppWrapper = (props: AppProps) => (
 );
 
 const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
+  const { t } = useTranslation();
   useBracketedPaste();
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const { stdout } = useStdout();
@@ -426,6 +430,9 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     useLoadingIndicator(streamingState);
   const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
 
+  // Execute Stop hooks when AI responses complete (IDLE state)
+  useIdleStopHook(streamingState, config);
+
   const handleFinalSubmit = useCallback(
     (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
@@ -724,11 +731,11 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                   )}
                   {ctrlCPressedOnce ? (
                     <Text color={Colors.AccentYellow}>
-                      Press Ctrl+C again to exit.
+                      {t('Press Ctrl+C again to exit.')}
                     </Text>
                   ) : ctrlDPressedOnce ? (
                     <Text color={Colors.AccentYellow}>
-                      Press Ctrl+D again to exit.
+                      {t('Press Ctrl+D again to exit.')}
                     </Text>
                   ) : (
                     <ContextSummaryDisplay
