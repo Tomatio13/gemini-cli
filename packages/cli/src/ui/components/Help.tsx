@@ -60,8 +60,6 @@ export const Help = ({ commands }: Help) => {
         ).
       </Text>
 
-      <Box height={1} />
-
       {/* Commands */}
       <Text bold color={Colors.Foreground}>
         {t('Commands:')}
@@ -122,6 +120,12 @@ export const Help = ({ commands }: Help) => {
           Shift+Tab
         </Text>{' '}
         - {t('Toggle auto-accepting edits')}
+      </Text>
+      <Text color={Colors.Foreground}>
+        <Text bold color={Colors.AccentPurple}>
+          Ctrl+Y
+        </Text>{' '}
+        - {t('Toggle YOLO mode')}
       </Text>
       <Text color={Colors.Foreground}>
         <Text bold color={Colors.AccentPurple}>
