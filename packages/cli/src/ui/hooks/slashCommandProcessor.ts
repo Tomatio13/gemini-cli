@@ -38,6 +38,7 @@ import {
   type SlashCommand,
 } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
+import { SlashCommandProcessorResult } from '../types.js';
 import { 
   discoverCustomSlashCommands, 
   createCustomSlashCommands, 

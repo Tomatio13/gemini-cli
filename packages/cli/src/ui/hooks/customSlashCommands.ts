@@ -26,7 +26,7 @@ export interface CustomSlashCommandFile {
 }
 
 export interface CustomSlashCommandContext {
-  addMessage: (message: { type: 'info' | 'error' | 'user'; content: string; timestamp: Date }) => void;
+  addMessage: (message: any) => void; // Simplified to avoid complex Message type conflicts
   config?: Config;
   onDebugMessage: (message: string) => void;
 }
