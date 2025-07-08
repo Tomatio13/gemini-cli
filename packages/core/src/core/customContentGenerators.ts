@@ -483,6 +483,20 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
       }
     }
 
+    // Convert string numeric values to numbers for OpenAI compatibility
+    if (schema.minItems && typeof schema.minItems === 'string') {
+      schema.minItems = Number(schema.minItems);
+    }
+    if (schema.maxItems && typeof schema.maxItems === 'string') {
+      schema.maxItems = Number(schema.maxItems);
+    }
+    if (schema.minLength && typeof schema.minLength === 'string') {
+      schema.minLength = Number(schema.minLength);
+    }
+    if (schema.maxLength && typeof schema.maxLength === 'string') {
+      schema.maxLength = Number(schema.maxLength);
+    }
+
     // Additional cleanup for common OpenAI schema issues
     this.fixCommonSchemaIssues(schema);
   }
