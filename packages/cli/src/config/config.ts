@@ -49,10 +49,16 @@ interface CliArgs {
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
   'auth-type': string | undefined;
+  'allowed-mcp-server-names': string | undefined;
 }
 
 async function parseArguments(): Promise<CliArgs> {
   const argv = await yargs(hideBin(process.argv))
+    .scriptName('gemini')
+    .usage(
+      '$0 [options]',
+      'Gemini CLI - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
+    )
     .option('model', {
       alias: 'm',
       type: 'string',
@@ -126,8 +132,12 @@ async function parseArguments(): Promise<CliArgs> {
     })
     .option('auth-type', {
       type: 'string',
-      description: 'Authentication type (oauth-personal, gemini-api-key, vertex-ai, openai-compatible, anthropic, local-llm)',
-      choices: ['oauth-personal', 'gemini-api-key', 'vertex-ai', 'openai-compatible', 'anthropic', 'local-llm'],
+      description: 'Authentication type (oauth-personal, gemini-api-key, vertex-ai, cloud-shell, openai-compatible, anthropic, local-llm)',
+      choices: ['oauth-personal', 'gemini-api-key', 'vertex-ai', 'cloud-shell', 'openai-compatible', 'anthropic', 'local-llm'],
+    })
+    .option('allowed-mcp-server-names', {
+      type: 'string',
+      description: 'Allowed MCP server names',
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -196,8 +206,21 @@ export async function loadCliConfig(
     extensionContextFilePaths,
   );
 
-  const mcpServers = mergeMcpServers(settings, extensions);
+  let mcpServers = mergeMcpServers(settings, extensions);
   const excludeTools = mergeExcludeTools(settings, extensions);
+
+  if (argv['allowed-mcp-server-names']) {
+    const allowedNames = new Set(
+      argv['allowed-mcp-server-names'].split(',').filter(Boolean),
+    );
+    if (allowedNames.size > 0) {
+      mcpServers = Object.fromEntries(
+        Object.entries(mcpServers).filter(([key]) => allowedNames.has(key)),
+      );
+    } else {
+      mcpServers = {};
+    }
+  }
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 

@@ -33,7 +33,18 @@ export function AuthDialog({
       label: t('Login with Google'),
       value: AuthType.LOGIN_WITH_GOOGLE,
     },
-    { label: t('Gemini API Key'), value: AuthType.USE_GEMINI },
+    ...(process.env.CLOUD_SHELL === 'true'
+      ? [
+          {
+            label: t('Use Cloud Shell user credentials'),
+            value: AuthType.CLOUD_SHELL,
+          },
+        ]
+      : []),
+    {
+      label: t('Gemini API Key'),
+      value: AuthType.USE_GEMINI,
+    },
     { label: t('Vertex AI'), value: AuthType.USE_VERTEX_AI },
     { label: t('OpenAI Compatible'), value: AuthType.USE_OPENAI_COMPATIBLE },
     { label: t('Anthropic Claude'), value: AuthType.USE_ANTHROPIC },
@@ -59,6 +70,11 @@ export function AuthDialog({
 
   useInput((_input, key) => {
     if (key.escape) {
+      // Prevent exit if there is an error message.
+      // This means they user is not authenticated yet.
+      if (errorMessage) {
+        return;
+      }
       if (settings.merged.selectedAuthType === undefined) {
         // Prevent exiting if no auth method is set
         setErrorMessage(

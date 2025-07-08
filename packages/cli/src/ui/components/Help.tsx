@@ -7,7 +7,7 @@
 import { useTranslation } from 'react-i18next';
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
-import { SlashCommand } from '../hooks/slashCommandProcessor.js';
+import { SlashCommand } from '../commands/types.js';
 
 interface Help {
   commands: SlashCommand[];
@@ -23,10 +23,6 @@ export const Help = ({ commands }: Help) => {
       borderStyle="round"
       padding={1}
     >
-      {/* Basics */}
-      <Text bold color={Colors.Foreground}>
-        {t('Basics:')}
-      </Text>
       <Text color={Colors.Foreground}>
         <Text bold color={Colors.AccentPurple}>
           {t('Add context')}
@@ -58,6 +54,31 @@ export const Help = ({ commands }: Help) => {
           {t('start server')}
         </Text>
         ).
+      </Text>
+
+      <Box height={1} />
+
+      {/* Commands */}
+      <Text bold color={Colors.Foreground}>
+        {t('Commands:')}
+      </Text>
+      {commands
+        .filter((command) => command.description)
+        .map((command: SlashCommand) => (
+          <Text key={command.name} color={Colors.Foreground}>
+            <Text bold color={Colors.AccentPurple}>
+              {' '}
+              /{command.name}
+            </Text>
+            {command.description && ' - ' + command.description}
+          </Text>
+        ))}
+      <Text color={Colors.Foreground}>
+        <Text bold color={Colors.AccentPurple}>
+          {' '}
+          !{' '}
+        </Text>
+        - {t('shell command')}
       </Text>
 
       {/* Commands */}

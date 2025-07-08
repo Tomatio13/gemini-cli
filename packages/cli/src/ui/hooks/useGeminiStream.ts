@@ -32,6 +32,7 @@ import {
   HistoryItemWithoutId,
   HistoryItemToolGroup,
   MessageType,
+  SlashCommandProcessorResult,
   ToolCallStatus,
 } from '../types.js';
 import { isAtCommand } from '../utils/commandUtils.js';
@@ -83,9 +84,7 @@ export const useGeminiStream = (
   onDebugMessage: (message: string) => void,
   handleSlashCommand: (
     cmd: PartListUnion,
-  ) => Promise<
-    import('./slashCommandProcessor.js').SlashCommandActionReturn | boolean
-  >,
+  ) => Promise<SlashCommandProcessorResult | false>,
   shellModeActive: boolean,
   getPreferredEditor: () => EditorType | undefined,
   onAuthError: () => void,
@@ -225,16 +224,10 @@ export const useGeminiStream = (
 
         // Handle UI-only commands first
         const slashCommandResult = await handleSlashCommand(trimmedQuery);
-        if (typeof slashCommandResult === 'boolean' && slashCommandResult) {
-          // Command was handled, and it doesn't require a tool call from here
-          return { queryToSend: null, shouldProceed: false };
-        } else if (
-          typeof slashCommandResult === 'object' &&
-          slashCommandResult.shouldScheduleTool
-        ) {
-          // Slash command wants to schedule a tool call (e.g., /memory add)
-          const { toolName, toolArgs } = slashCommandResult;
-          if (toolName && toolArgs) {
+
+        if (slashCommandResult) {
+          if (slashCommandResult.type === 'schedule_tool') {
+            const { toolName, toolArgs } = slashCommandResult;
             const toolCallRequest: ToolCallRequestInfo = {
               callId: `${toolName}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
               name: toolName,
@@ -242,52 +235,52 @@ export const useGeminiStream = (
               isClientInitiated: true,
             };
             scheduleToolCalls([toolCallRequest], abortSignal);
-          }
-          return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
-        } else if (
-          typeof slashCommandResult === 'object' &&
-          slashCommandResult.message
-        ) {
-          // Custom slash command returned processed content as message
-          // Add it as a user message and treat it as a normal query to send to LLM
-          onDebugMessage(`Custom command processed content: '${slashCommandResult.message}'`);
-          await logger?.logMessage(MessageSenderType.USER, slashCommandResult.message);
-          addItem(
-            { type: MessageType.USER, text: slashCommandResult.message },
-            userMessageTimestamp,
-          );
-          localQueryToSendToGemini = slashCommandResult.message;
-        }
-
-        // If localQueryToSendToGemini is already set by custom command, skip other processing
-        if (localQueryToSendToGemini === null) {
-          if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
             return { queryToSend: null, shouldProceed: false };
-          }
-
-          // Handle @-commands (which might involve tool calls)
-          if (isAtCommand(trimmedQuery)) {
-            const atCommandResult = await handleAtCommand({
-              query: trimmedQuery,
-              config,
-              addItem,
-              onDebugMessage,
-              messageId: userMessageTimestamp,
-              signal: abortSignal,
-            });
-            if (!atCommandResult.shouldProceed) {
-              return { queryToSend: null, shouldProceed: false };
-            }
-            localQueryToSendToGemini = atCommandResult.processedQuery;
-          } else {
-            // Normal query for Gemini
+          } else if (slashCommandResult.type === 'message') {
+            // Custom slash command returned processed content as message
+            // Add it as a user message and treat it as a normal query to send to LLM
+            onDebugMessage(`Custom command processed content: '${slashCommandResult.message}'`);
+            await logger?.logMessage(MessageSenderType.USER, slashCommandResult.message);
             addItem(
-              { type: MessageType.USER, text: trimmedQuery },
+              { type: MessageType.USER, text: slashCommandResult.message },
               userMessageTimestamp,
             );
-            localQueryToSendToGemini = trimmedQuery;
+            localQueryToSendToGemini = slashCommandResult.message;
+          } else {
+            // slashCommandResult.type === 'handled'
+            return { queryToSend: null, shouldProceed: false };
           }
         }
+
+      // If localQueryToSendToGemini is already set by custom command, skip other processing
+      if (localQueryToSendToGemini === null) {
+        if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
+          return { queryToSend: null, shouldProceed: false };
+        }
+
+        // Handle @-commands (which might involve tool calls)
+        if (isAtCommand(trimmedQuery)) {
+          const atCommandResult = await handleAtCommand({
+            query: trimmedQuery,
+            config,
+            addItem,
+            onDebugMessage,
+            messageId: userMessageTimestamp,
+            signal: abortSignal,
+          });
+          if (!atCommandResult.shouldProceed) {
+            return { queryToSend: null, shouldProceed: false };
+          }
+          localQueryToSendToGemini = atCommandResult.processedQuery;
+        } else {
+          // Normal query for Gemini
+          addItem(
+            { type: MessageType.USER, text: trimmedQuery },
+            userMessageTimestamp,
+          );
+          localQueryToSendToGemini = trimmedQuery;
+        }
+      }
       } else {
         // It's a function response (PartListUnion that isn't a string)
         localQueryToSendToGemini = query;

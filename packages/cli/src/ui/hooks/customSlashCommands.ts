@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
-import { SlashCommand } from './slashCommandProcessor.js';
+import { SlashCommand, CommandContext, SlashCommandActionReturn } from '../commands/types.js';
 import { Config } from '@google/gemini-cli-core';
 import { MessageType } from '../types.js';
 
@@ -222,7 +222,7 @@ export function createCustomSlashCommands(
     return {
       name: commandName,
       description: command.metadata.description || `Custom command: ${command.name}`,
-      action: async (mainCommand: string, subCommand?: string, args?: string) => {
+      action: async (commandContext: CommandContext, args: string): Promise<SlashCommandActionReturn> => {
         try {
           const processedContent = await processDynamicContent(command.content, context, args);
           
@@ -233,9 +233,11 @@ export function createCustomSlashCommands(
             timestamp: new Date(),
           });
           
-          // Return message to indicate the command was processed and sent to LLM
+          // Return message action to indicate the content should be sent to LLM
           return {
-            message: processedContent,
+            type: 'message',
+            messageType: 'info',
+            content: processedContent,
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -245,8 +247,11 @@ export function createCustomSlashCommands(
             timestamp: new Date(),
           });
           
+          // Return error message
           return {
-            message: `Error: ${errorMessage}`,
+            type: 'message',
+            messageType: 'error',
+            content: `Failed to execute custom command '${commandName}': ${errorMessage}`,
           };
         }
       },
