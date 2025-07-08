@@ -267,10 +267,12 @@ async function connectAndDiscover(
   if (transport instanceof StdioClientTransport && transport.stderr) {
     transport.stderr.on('data', (data) => {
       const stderrStr = data.toString();
-      // Filter out verbose INFO logs from some MCP servers
-      if (!stderrStr.includes('] INFO')) {
+      // Suppress all MCP server stderr output during normal operation
+      // Only log errors that are not routine startup/operational messages
+      if (stderrStr.includes('ERROR') || stderrStr.includes('FATAL') || stderrStr.includes('CRITICAL')) {
         console.debug(`MCP STDERR (${mcpServerName}):`, stderrStr);
       }
+      // All other output (INFO, DEBUG, startup messages) is silently ignored
     });
   }
 
@@ -376,9 +378,8 @@ async function connectAndDiscover(
   // functionality. Connections to servers that did provide tools are kept
   // open, as those tools will require the connection to function.
   if (toolRegistry.getToolsByServer(mcpServerName).length === 0) {
-    console.log(
-      `No tools registered from MCP server '${mcpServerName}'. Closing connection.`,
-    );
+    // Suppressed: No tools registered from MCP server. Closing connection.
+    // console.log(`No tools registered from MCP server '${mcpServerName}'. Closing connection.`);
     if (
       transport instanceof StdioClientTransport ||
       transport instanceof SSEClientTransport ||
