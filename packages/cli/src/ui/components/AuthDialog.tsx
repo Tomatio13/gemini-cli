@@ -26,7 +26,11 @@ export function AuthDialog({
 }: AuthDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(
-    initialErrorMessage || null,
+    initialErrorMessage
+      ? initialErrorMessage
+      : process.env.GEMINI_API_KEY
+        ? 'Existing API key detected (GEMINI_API_KEY). Select "Gemini API Key" option to use it.'
+        : null,
   );
   const items = [
     {
@@ -50,13 +54,18 @@ export function AuthDialog({
     { label: t('Anthropic Claude'), value: AuthType.USE_ANTHROPIC },
     { label: t('Local LLM'), value: AuthType.USE_LOCAL_LLM },
   ];
-  let initialAuthIndex = items.findIndex(
-    (item) => item.value === settings.merged.selectedAuthType,
-  );
 
-  if (initialAuthIndex === -1) {
-    initialAuthIndex = 0;
-  }
+  const initialAuthIndex = items.findIndex((item) => {
+    if (settings.merged.selectedAuthType) {
+      return item.value === settings.merged.selectedAuthType;
+    }
+
+    if (process.env.GEMINI_API_KEY) {
+      return item.value === AuthType.USE_GEMINI;
+    }
+
+    return item.value === AuthType.LOGIN_WITH_GOOGLE;
+  });
 
   const handleAuthSelect = (authMethod: AuthType) => {
     const error = validateAuthMethod(authMethod);
@@ -96,13 +105,18 @@ export function AuthDialog({
       padding={1}
       width="100%"
     >
-      <Text bold>{t('Select Auth Method')}</Text>
-      <RadioButtonSelect
-        items={items}
-        initialIndex={initialAuthIndex}
-        onSelect={handleAuthSelect}
-        isFocused={true}
-      />
+      <Text bold>Get started</Text>
+      <Box marginTop={1}>
+        <Text>How would you like to authenticate for this project?</Text>
+      </Box>
+      <Box marginTop={1}>
+        <RadioButtonSelect
+          items={items}
+          initialIndex={initialAuthIndex}
+          onSelect={handleAuthSelect}
+          isFocused={true}
+        />
+      </Box>
       {errorMessage && (
         <Box marginTop={1}>
           <Text color={Colors.AccentRed}>{errorMessage}</Text>
