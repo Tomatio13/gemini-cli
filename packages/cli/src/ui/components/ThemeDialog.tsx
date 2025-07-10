@@ -59,6 +59,7 @@ export function ThemeDialog({
   const scopeItems = [
     { label: t('User Settings'), value: SettingScope.User },
     { label: t('Workspace Settings'), value: SettingScope.Workspace },
+    { label: t('System Settings'), value: SettingScope.System },
   ];
 
   const handleThemeSelect = (themeName: string) => {
@@ -88,16 +89,21 @@ export function ThemeDialog({
     }
   });
 
+  const otherScopes = Object.values(SettingScope).filter(
+    (scope) => scope !== selectedScope,
+  );
+
+  const modifiedInOtherScopes = otherScopes.filter(
+    (scope) => settings.forScope(scope).settings.theme !== undefined,
+  );
+
   let otherScopeModifiedMessage = '';
-  const otherScope =
-    selectedScope === SettingScope.User
-      ? SettingScope.Workspace
-      : SettingScope.User;
-  if (settings.forScope(otherScope).settings.theme !== undefined) {
+  if (modifiedInOtherScopes.length > 0) {
+    const modifiedScopesStr = modifiedInOtherScopes.join(', ');
     otherScopeModifiedMessage =
       settings.forScope(selectedScope).settings.theme !== undefined
-        ? t('(Also modified in {{scope}})', { scope: otherScope })
-        : t('(Modified in {{scope}})', { scope: otherScope });
+        ? t('(Also modified in {{scope}})', { scope: modifiedScopesStr })
+        : t('(Modified in {{scope}})', { scope: modifiedScopesStr });
   }
 
   // Constants for calculating preview pane layout.

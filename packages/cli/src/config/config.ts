@@ -51,8 +51,7 @@ interface CliArgs {
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
   'auth-type': string | undefined;
-  'allowed-mcp-server-names': string | undefined;
-  allowedMcpServerNames: string | undefined;
+  allowedMcpServerNames: string[] | undefined;
   extensions: string[] | undefined;
   listExtensions: boolean | undefined;
 }
@@ -159,7 +158,8 @@ async function parseArguments(): Promise<CliArgs> {
       choices: ['oauth-personal', 'gemini-api-key', 'vertex-ai', 'cloud-shell', 'openai-compatible', 'anthropic', 'local-llm'],
     })
     .option('allowed-mcp-server-names', {
-      type: 'string',
+      type: 'array',
+      string: true,
       description: 'Allowed MCP server names',
     })
     .option('extensions', {
@@ -174,6 +174,7 @@ async function parseArguments(): Promise<CliArgs> {
       type: 'boolean',
       description: 'List all available extensions and exit.',
     })
+
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -258,9 +259,7 @@ export async function loadCliConfig(
   const excludeTools = mergeExcludeTools(settings, activeExtensions);
 
   if (argv.allowedMcpServerNames) {
-    const allowedNames = new Set(
-      argv.allowedMcpServerNames.split(',').filter(Boolean),
-    );
+    const allowedNames = new Set(argv.allowedMcpServerNames.filter(Boolean));
     if (allowedNames.size > 0) {
       mcpServers = Object.fromEntries(
         Object.entries(mcpServers).filter(([key]) => allowedNames.has(key)),

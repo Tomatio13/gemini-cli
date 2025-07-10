@@ -261,19 +261,25 @@ export class GeminiClient {
   async *sendMessageStream(
     request: PartListUnion,
     signal: AbortSignal,
+    prompt_id: string,
     turns: number = this.MAX_TURNS,
+    originalModel?: string,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     // Ensure turns never exceeds MAX_TURNS to prevent infinite loops
     const boundedTurns = Math.min(turns, this.MAX_TURNS);
     if (!boundedTurns) {
-      return new Turn(this.getChat());
+      return new Turn(this.getChat(), prompt_id);
     }
 
-    const compressed = await this.tryCompressChat();
+    // Track the original model from the first call to detect model switching
+    const initialModel = originalModel || this.config.getModel();
+
+    const compressed = await this.tryCompressChat(prompt_id);
+
     if (compressed) {
       yield { type: GeminiEventType.ChatCompressed, value: compressed };
     }
-    const turn = new Turn(this.getChat());
+    const turn = new Turn(this.getChat(), prompt_id);
     const resultStream = turn.run(request, signal);
     for await (const event of resultStream) {
       yield event;
@@ -284,6 +290,14 @@ export class GeminiClient {
     const isCustomProvider = authType === 'openai-compatible' || authType === 'anthropic' || authType === 'local-llm';
 
     if (!turn.pendingToolCalls.length && signal && !signal.aborted && !isCustomProvider) {
+      // Check if model was switched during the call (likely due to quota error)
+      const currentModel = this.config.getModel();
+      if (currentModel !== initialModel) {
+        // Model was switched (likely due to quota error fallback)
+        // Don't continue with recursive call to prevent unwanted Flash execution
+        return turn;
+      }
+
       const nextSpeakerCheck = await checkNextSpeaker(
         this.getChat(),
         this,
@@ -293,7 +307,13 @@ export class GeminiClient {
         const nextRequest = [{ text: 'Please continue.' }];
         // This recursive call's events will be yielded out, but the final
         // turn object will be from the top-level call.
-        yield* this.sendMessageStream(nextRequest, signal, boundedTurns - 1);
+        yield* this.sendMessageStream(
+          nextRequest,
+          signal,
+          prompt_id,
+          boundedTurns - 1,
+          initialModel,
+        );
       }
     }
     return turn;
@@ -303,9 +323,12 @@ export class GeminiClient {
     contents: Content[],
     schema: SchemaUnion,
     abortSignal: AbortSignal,
-    model: string = DEFAULT_GEMINI_FLASH_MODEL,
+    model?: string,
     config: GenerateContentConfig = {},
   ): Promise<Record<string, unknown>> {
+    // Use current model from config instead of hardcoded Flash model
+    const modelToUse =
+      model || this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL;
     try {
       const userMemory = this.config.getUserMemory();
       const systemInstruction = getCoreSystemPrompt(userMemory);
@@ -317,7 +340,7 @@ export class GeminiClient {
 
       const apiCall = () =>
         this.getContentGenerator().generateContent({
-          model,
+          model: modelToUse,
           config: {
             ...requestConfig,
             systemInstruction,
@@ -477,6 +500,7 @@ export class GeminiClient {
   }
 
   async tryCompressChat(
+    prompt_id: string,
     force: boolean = false,
   ): Promise<ChatCompressionInfo | null> {
     const curatedHistory = this.getChat().getHistory(true);
@@ -523,14 +547,17 @@ export class GeminiClient {
 
     this.getChat().setHistory(historyToCompress);
 
-    const { text: summary } = await this.getChat().sendMessage({
-      message: {
-        text: 'First, reason in your scratchpad. Then, generate the <state_snapshot>.',
+    const { text: summary } = await this.getChat().sendMessage(
+      {
+        message: {
+          text: 'First, reason in your scratchpad. Then, generate the <state_snapshot>.',
+        },
+        config: {
+          systemInstruction: { text: getCompressionPrompt() },
+        },
       },
-      config: {
-        systemInstruction: { text: getCompressionPrompt() },
-      },
-    });
+      prompt_id,
+    );
     this.chat = await this.startChat([
       {
         role: 'user',
@@ -590,9 +617,13 @@ export class GeminiClient {
           fallbackModel,
           error,
         );
-        if (accepted) {
+        if (accepted !== false && accepted !== null) {
           this.config.setModel(fallbackModel);
           return fallbackModel;
+        }
+        // Check if the model was switched manually in the handler
+        if (this.config.getModel() === fallbackModel) {
+          return null; // Model was switched but don't continue with current prompt
         }
       } catch (error) {
         console.warn('Flash fallback handler failed:', error);
