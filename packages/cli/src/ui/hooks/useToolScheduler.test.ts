@@ -50,6 +50,7 @@ const mockConfig = {
   getApprovalMode: vi.fn(() => ApprovalMode.DEFAULT),
   getUsageStatisticsEnabled: () => true,
   getDebugMode: () => false,
+  getHooks: vi.fn(() => ({})),
 };
 
 const mockTool: Tool = {
@@ -73,6 +74,16 @@ const mockToolWithLiveOutput: Tool = {
 };
 
 let mockOnUserConfirmForToolConfirmation: Mock;
+
+// Helper to create test ToolCallRequestInfo with required properties
+const createTestToolCallRequest = (overrides: Partial<ToolCallRequestInfo>): ToolCallRequestInfo => ({
+  callId: 'test-call-id',
+  name: 'test-tool',
+  args: {},
+  isClientInitiated: false,
+  prompt_id: 'test-prompt-id',
+  ...overrides,
+});
 
 const mockToolRequiresConfirmation: Tool = {
   ...mockTool,
@@ -119,6 +130,7 @@ describe('useReactToolScheduler in YOLO Mode', () => {
         onComplete,
         mockConfig as unknown as Config,
         setPendingHistoryItem,
+        () => undefined,
       ),
     );
 
@@ -132,11 +144,13 @@ describe('useReactToolScheduler in YOLO Mode', () => {
 
     const { result } = renderSchedulerInYoloMode();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'yoloCall',
       name: 'mockToolRequiresConfirmation',
       args: { data: 'any data' },
-    };
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -267,6 +281,7 @@ describe('useReactToolScheduler', () => {
         onComplete,
         mockConfig as unknown as Config,
         setPendingHistoryItem,
+        () => undefined,
       ),
     );
 
@@ -285,11 +300,11 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'call1',
       name: 'mockTool',
       args: { param: 'value' },
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -332,11 +347,11 @@ describe('useReactToolScheduler', () => {
     mockToolRegistry.getTool.mockReturnValue(undefined);
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'call1',
       name: 'nonExistentTool',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -369,11 +384,11 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'call1',
       name: 'mockTool',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -405,11 +420,11 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'call1',
       name: 'mockTool',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -446,11 +461,11 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'callConfirm',
       name: 'mockToolRequiresConfirmation',
       args: { data: 'sensitive' },
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -502,11 +517,11 @@ describe('useReactToolScheduler', () => {
     mockToolRegistry.getTool.mockReturnValue(mockToolRequiresConfirmation);
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'callConfirmCancel',
       name: 'mockToolRequiresConfirmation',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -574,11 +589,11 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request: ToolCallRequestInfo = {
+    const request = createTestToolCallRequest({
       callId: 'liveCall',
       name: 'mockToolWithLiveOutput',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -667,8 +682,8 @@ describe('useReactToolScheduler', () => {
     const { result } = renderScheduler();
     const schedule = result.current[1];
     const requests: ToolCallRequestInfo[] = [
-      { callId: 'multi1', name: 'tool1', args: { p: 1 } },
-      { callId: 'multi2', name: 'tool2', args: { p: 2 } },
+      createTestToolCallRequest({ callId: 'multi1', name: 'tool1', args: { p: 1 } }),
+      createTestToolCallRequest({ callId: 'multi2', name: 'tool2', args: { p: 2 } }),
     ];
 
     act(() => {
@@ -742,16 +757,16 @@ describe('useReactToolScheduler', () => {
 
     const { result } = renderScheduler();
     const schedule = result.current[1];
-    const request1: ToolCallRequestInfo = {
+    const request1 = createTestToolCallRequest({
       callId: 'run1',
       name: 'mockTool',
       args: {},
-    };
-    const request2: ToolCallRequestInfo = {
+    });
+    const request2 = createTestToolCallRequest({
       callId: 'run2',
       name: 'mockTool',
       args: {},
-    };
+    });
 
     act(() => {
       schedule(request1, new AbortController().signal);
@@ -783,11 +798,11 @@ describe('useReactToolScheduler', () => {
 });
 
 describe('mapToDisplay', () => {
-  const baseRequest: ToolCallRequestInfo = {
+  const baseRequest = createTestToolCallRequest({
     callId: 'testCallId',
     name: 'testTool',
     args: { foo: 'bar' },
-  };
+  });
 
   const baseTool: Tool = {
     name: 'testTool',

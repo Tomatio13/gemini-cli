@@ -13,7 +13,6 @@ import {
   createCustomSlashCommands,
   CustomSlashCommandContext,
 } from './customSlashCommands.js';
-import { CommandContext } from '../commands/types.js';
 
 // Mock fs module
 vi.mock('fs', () => ({
@@ -36,23 +35,6 @@ describe('customSlashCommands', () => {
   const mockContext: CustomSlashCommandContext = {
     addMessage: vi.fn(),
     onDebugMessage: vi.fn(),
-  };
-
-  const mockCommandContext: CommandContext = {
-    services: {
-      config: null,
-      settings: {} as any,
-      git: undefined,
-      logger: {} as any,
-    },
-    ui: {
-      addItem: vi.fn(),
-      clear: vi.fn(),
-      setDebugMessage: vi.fn(),
-    },
-    session: {
-      stats: {} as any,
-    },
   };
 
   beforeEach(() => {
@@ -185,7 +167,7 @@ This is a test command with metadata.`);
       ];
 
       const result = createCustomSlashCommands(customCommands, mockContext);
-      await result[0].action?.(mockCommandContext, '');
+      await result[0].action('user:test-command');
 
       expect(mockContext.addMessage).toHaveBeenCalledWith({
         type: 'user',
@@ -205,7 +187,7 @@ This is a test command with metadata.`);
       ];
 
       const result = createCustomSlashCommands(customCommands, mockContext);
-      await result[0].action?.(mockCommandContext, 'John');
+      await result[0].action('user:greet', undefined, 'John');
 
       expect(mockContext.addMessage).toHaveBeenCalledWith({
         type: 'user',
