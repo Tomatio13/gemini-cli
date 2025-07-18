@@ -5,10 +5,9 @@
  */
 
 import { Schema } from '@google/genai';
-// @ts-ignore - Ajv import compatibility
-const Ajv = require('ajv');
+import Ajv from 'ajv';
 
-const ajValidator = new Ajv();
+const ajValidator = new Ajv.default();
 
 /**
  * Simple utility to validate objects against JSON Schemas

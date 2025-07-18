@@ -112,6 +112,7 @@ export async function main() {
   }
 
   // Set a default auth type if one isn't set.
+  // Note: This only sets Cloud Shell auth automatically, avoiding unwanted switches to other providers
   if (!settings.merged.selectedAuthType) {
     if (process.env.CLOUD_SHELL === 'true') {
       settings.setValue(
@@ -299,9 +300,13 @@ async function validateNonInterActiveAuth(
     selectedAuthType = cliAuthType as AuthType;
   } else if (!selectedAuthType) {
     // Check for various API keys to auto-detect auth type
+    // Prioritize Gemini API key over others to prevent unwanted auto-switching
     if (process.env.GEMINI_API_KEY) {
       selectedAuthType = AuthType.USE_GEMINI;
+    } else if (process.env.GOOGLE_API_KEY) {
+      selectedAuthType = AuthType.USE_VERTEX_AI;
     } else if (process.env.OPENAI_API_KEY) {
+      // Only use OpenAI if no Gemini keys are available
       selectedAuthType = AuthType.USE_OPENAI_COMPATIBLE;
     } else if (process.env.ANTHROPIC_API_KEY) {
       selectedAuthType = AuthType.USE_ANTHROPIC;
