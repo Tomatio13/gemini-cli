@@ -30,6 +30,11 @@ With the Gemini CLI you can:
 
    ```bash
    npm install -g @google/gemini-cli
+   ```
+
+   Then, run the CLI from anywhere:
+
+   ```bash
    gemini
    ```
 
@@ -53,7 +58,7 @@ The Gemini API provides a free tier with [100 requests per day](https://ai.googl
 
 ### Use a Vertex AI API key:
 
-The Vertex AI provides [free tier](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview) using express mode for Gemini 2.5 Pro, control over which model you use, and access to higher rate limits with a billing account:
+The Vertex AI API provides a [free tier](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview) using express mode for Gemini 2.5 Pro, control over which model you use, and access to higher rate limits with a billing account:
 
 1. Generate a key from [Google Cloud](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys).
 2. Set it as an environment variable in your terminal. Replace `YOUR_API_KEY` with your generated key and set GOOGLE_GENAI_USE_VERTEXAI to true
@@ -66,59 +71,6 @@ The Vertex AI provides [free tier](https://cloud.google.com/vertex-ai/generative
 3. (Optionally) Add a billing account on your project to get access to [higher usage limits](https://cloud.google.com/vertex-ai/generative-ai/docs/quotas)
 
 For other authentication methods, including Google Workspace accounts, see the [authentication](./docs/cli/authentication.md) guide.
-
-### Use OpenAI or other compatible APIs:
-
-The Gemini CLI also supports OpenAI-compatible APIs, including OpenAI, Ollama, and other local models:
-
-#### OpenAI API:
-1. Get your API key from [OpenAI](https://platform.openai.com/api-keys).
-2. Set the environment variable:
-   ```bash
-   export OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
-   ```
-3. Run with OpenAI:
-   ```bash
-   gemini --auth-type openai-compatible --model gpt-4o
-   ```
-
-#### Ollama (Local Models):
-1. Install and start [Ollama](https://ollama.ai/).
-2. Pull a model (e.g., `ollama pull llama3.2`).
-3. Set the environment variables:
-   ```bash
-   export CUSTOM_BASE_URL="http://localhost:11434/v1"
-   export LOCAL_LLM_API_KEY="dummy-key"
-   ```
-4. Run with Ollama:
-   ```bash
-   gemini --auth-type local-llm --model llama3.2
-   ```
-
-#### Anthropic Claude API:
-1. Get your API key from [Anthropic](https://console.anthropic.com/).
-2. Set the environment variable:
-   ```bash
-   export ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
-   ```
-3. Run with Claude:
-   ```bash
-   gemini --auth-type anthropic --model claude-3-5-sonnet-20241022
-   ```
-
-#### Other OpenAI-Compatible APIs:
-For other providers like local deployments or cloud services:
-1. Set the environment variables:
-   ```bash
-   export OPENAI_API_KEY="YOUR_API_KEY"
-   export CUSTOM_BASE_URL="YOUR_API_ENDPOINT"
-   ```
-2. Run with the provider:
-   ```bash
-   gemini --auth-type openai-compatible --model MODEL_NAME
-   ```
-
-You can also configure these settings in your configuration file. See the [authentication guide](./docs/cli/authentication.md) for more details.
 
 ## Examples
 
@@ -145,13 +97,14 @@ gemini
 
 - Learn how to [contribute to or build from the source](./CONTRIBUTING.md).
 - Explore the available **[CLI Commands](./docs/cli/commands.md)**.
-- If you encounter any issues, review the **[Troubleshooting guide](./docs/troubleshooting.md)**.
+- If you encounter any issues, review the **[troubleshooting guide](./docs/troubleshooting.md)**.
 - For more comprehensive documentation, see the [full documentation](./docs/index.md).
 - Take a look at some [popular tasks](#popular-tasks) for more inspiration.
+- Check out our **[Official Roadmap](./ROADMAP.md)**
 
 ### Troubleshooting
 
-Head over to the [troubleshooting](docs/troubleshooting.md) guide if you're
+Head over to the [troubleshooting guide](docs/troubleshooting.md) if you're
 having issues.
 
 ## Popular tasks
