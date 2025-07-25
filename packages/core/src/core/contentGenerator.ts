@@ -15,7 +15,9 @@ import {
 } from '@google/genai';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
+import { Config } from '../config/config.js';
 import { getEffectiveModel } from './modelCheck.js';
+import { UserTierId } from '../code_assist/types.js';
 import {
   OpenAICompatibleContentGenerator,
   AnthropicContentGenerator
@@ -36,6 +38,8 @@ export interface ContentGenerator {
   countTokens(request: CountTokensParameters): Promise<CountTokensResponse>;
 
   embedContent(request: EmbedContentParameters): Promise<EmbedContentResponse>;
+
+  userTier?: UserTierId;
 }
 
 export enum AuthType {
@@ -53,6 +57,7 @@ export type ContentGeneratorConfig = {
   apiKey?: string;
   vertexai?: boolean;
   authType?: AuthType | undefined;
+  proxy?: string | undefined;
   // New fields for custom endpoints
   baseUrl?: string;
   customHeaders?: Record<string, string>;
@@ -60,7 +65,7 @@ export type ContentGeneratorConfig = {
 };
 
 export async function createContentGeneratorConfig(
-  model: string | undefined,
+  config: Config,
   authType: AuthType | undefined,
 ): Promise<ContentGeneratorConfig> {
   const geminiApiKey = process.env.GEMINI_API_KEY || undefined;
@@ -75,12 +80,13 @@ export async function createContentGeneratorConfig(
   const customBaseUrl = process.env.CUSTOM_BASE_URL;
   const customTimeout = process.env.CUSTOM_TIMEOUT;
 
-  // Use runtime model from config if available, otherwise fallback to parameter or default
-  const effectiveModel = model || DEFAULT_GEMINI_MODEL;
+  // Use runtime model from config if available; otherwise, fall back to parameter or default
+  const effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
 
   const contentGeneratorConfig: ContentGeneratorConfig = {
     model: effectiveModel,
     authType,
+    proxy: config?.getProxy(),
     baseUrl: customBaseUrl,
     timeout: customTimeout ? parseInt(customTimeout, 10) : undefined,
   };

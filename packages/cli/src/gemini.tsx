@@ -7,7 +7,7 @@
 import React from 'react';
 import { render } from 'ink';
 import { AppWrapper } from './ui/App.js';
-import { loadCliConfig, getCliArguments } from './config/config.js';
+import { loadCliConfig, parseArguments, CliArgs } from './config/config.js';
 import { readStdin } from './utils/readStdin.js';
 import { basename } from 'node:path';
 import v8 from 'node:v8';
@@ -17,7 +17,6 @@ import { start_sandbox } from './utils/sandbox.js';
 import {
   LoadedSettings,
   loadSettings,
-  USER_SETTINGS_PATH,
   SettingScope,
 } from './config/settings.js';
 import { themeManager } from './ui/themes/theme-manager.js';
@@ -25,7 +24,8 @@ import { getStartupWarnings } from './utils/startupWarnings.js';
 import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { runNonInteractive } from './nonInteractiveCli.js';
 import { loadExtensions, Extension } from './config/extension.js';
-import { cleanupCheckpoints } from './utils/cleanup.js';
+import { cleanupCheckpoints, registerCleanup } from './utils/cleanup.js';
+import { getCliVersion } from './utils/version.js';
 import {
   ApprovalMode,
   Config,
@@ -35,9 +35,11 @@ import {
   sessionId,
   logUserPrompt,
   AuthType,
+  getOauthClient,
 } from '@google/gemini-cli-core';
 import { validateAuthMethod } from './config/auth.js';
 import { setMaxSizedBoxDebugging } from './ui/components/shared/MaxSizedBox.js';
+import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 
 function getNodeMemoryArgs(config: Config): string[] {
   const totalMemoryMB = os.totalmem() / (1024 * 1024);
@@ -82,6 +84,7 @@ async function relaunchWithAdditionalArgs(additionalArgs: string[]) {
   await new Promise((resolve) => child.on('close', resolve));
   process.exit(0);
 }
+import { runAcpPeer } from './acp/acpPeer.js';
 
 export async function main() {
   const workspaceRoot = process.cwd();
@@ -100,8 +103,21 @@ export async function main() {
     process.exit(1);
   }
 
+  const argv = await parseArguments();
   const extensions = loadExtensions(workspaceRoot);
-  const config = await loadCliConfig(settings.merged, extensions, sessionId);
+  const config = await loadCliConfig(
+    settings.merged,
+    extensions,
+    sessionId,
+    argv,
+  );
+
+  if (argv.promptInteractive && !process.stdin.isTTY) {
+    console.error(
+      'Error: The --prompt-interactive flag is not supported when piping input from stdin.',
+    );
+    process.exit(1);
+  }
 
   if (config.getListExtensions()) {
     console.log('Installed extensions:');
@@ -112,7 +128,6 @@ export async function main() {
   }
 
   // Set a default auth type if one isn't set.
-  // Note: This only sets Cloud Shell auth automatically, avoiding unwanted switches to other providers
   if (!settings.merged.selectedAuthType) {
     if (process.env.CLOUD_SHELL === 'true') {
       settings.setValue(
@@ -126,6 +141,9 @@ export async function main() {
   setMaxSizedBoxDebugging(config.getDebugMode());
 
   await config.initialize();
+
+  // Load custom themes from settings
+  themeManager.loadCustomThemes(settings.merged.customThemes);
 
   if (settings.merged.theme) {
     if (!themeManager.setActiveTheme(settings.merged.theme)) {
@@ -166,25 +184,45 @@ export async function main() {
       }
     }
   }
+
+  if (
+    settings.merged.selectedAuthType === AuthType.LOGIN_WITH_GOOGLE &&
+    config.isBrowserLaunchSuppressed()
+  ) {
+    // Do oauth before app renders to make copying the link possible.
+    await getOauthClient(settings.merged.selectedAuthType, config);
+  }
+
+  if (config.getExperimentalAcp()) {
+    return runAcpPeer(config, settings);
+  }
+
   let input = config.getQuestion();
   const startupWarnings = [
     ...(await getStartupWarnings()),
     ...(await getUserStartupWarnings(workspaceRoot)),
   ];
 
+  const shouldBeInteractive =
+    !!argv.promptInteractive || (process.stdin.isTTY && input?.length === 0);
+
   // Render UI, passing necessary config values. Check that there is no command line question.
-  if (process.stdin.isTTY && input?.length === 0) {
+  if (shouldBeInteractive) {
+    const version = await getCliVersion();
     setWindowTitle(basename(workspaceRoot), settings);
-    render(
+    const instance = render(
       <React.StrictMode>
         <AppWrapper
           config={config}
           settings={settings}
           startupWarnings={startupWarnings}
+          version={version}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },
     );
+
+    registerCleanup(() => instance.unmount());
     return;
   }
   // If not a TTY, read from stdin
@@ -203,18 +241,16 @@ export async function main() {
     'event.timestamp': new Date().toISOString(),
     prompt: input,
     prompt_id,
+    auth_type: config.getContentGeneratorConfig()?.authType,
     prompt_length: input.length,
   });
-
-  // Get CLI arguments to check for auth-type
-  const cliArgs = await getCliArguments();
 
   // Non-interactive mode handled by runNonInteractive
   const nonInteractiveConfig = await loadNonInteractiveConfig(
     config,
     extensions,
     settings,
-    cliArgs['auth-type'],
+    argv,
   );
 
   await runNonInteractive(nonInteractiveConfig, input, prompt_id);
@@ -255,7 +291,7 @@ async function loadNonInteractiveConfig(
   config: Config,
   extensions: Extension[],
   settings: LoadedSettings,
-  cliAuthType?: string,
+  argv: CliArgs,
 ) {
   let finalConfig = config;
   if (config.getApprovalMode() !== ApprovalMode.YOLO) {
@@ -279,53 +315,13 @@ async function loadNonInteractiveConfig(
       nonInteractiveSettings,
       extensions,
       config.getSessionId(),
+      argv,
     );
     await finalConfig.initialize();
   }
 
-  return await validateNonInterActiveAuth(
+  return await validateNonInteractiveAuth(
     settings.merged.selectedAuthType,
     finalConfig,
-    cliAuthType,
   );
-}
-
-async function validateNonInterActiveAuth(
-  selectedAuthType: AuthType | undefined,
-  nonInteractiveConfig: Config,
-  cliAuthType?: string,
-) {
-  // Use CLI auth-type if provided, otherwise fall back to settings or environment
-  if (cliAuthType) {
-    selectedAuthType = cliAuthType as AuthType;
-  } else if (!selectedAuthType) {
-    // Check for various API keys to auto-detect auth type
-    // Prioritize Gemini API key over others to prevent unwanted auto-switching
-    if (process.env.GEMINI_API_KEY) {
-      selectedAuthType = AuthType.USE_GEMINI;
-    } else if (process.env.GOOGLE_API_KEY) {
-      selectedAuthType = AuthType.USE_VERTEX_AI;
-    } else if (process.env.OPENAI_API_KEY) {
-      // Only use OpenAI if no Gemini keys are available
-      selectedAuthType = AuthType.USE_OPENAI_COMPATIBLE;
-    } else if (process.env.ANTHROPIC_API_KEY) {
-      selectedAuthType = AuthType.USE_ANTHROPIC;
-    } else if (process.env.CUSTOM_BASE_URL) {
-      selectedAuthType = AuthType.USE_LOCAL_LLM;
-    } else {
-        console.error(
-          `Please set an Auth method in your ${USER_SETTINGS_PATH} OR specify GEMINI_API_KEY env variable file before running`,
-        );
-      process.exit(1);
-    }
-  }
-
-  const err = validateAuthMethod(selectedAuthType);
-  if (err != null) {
-    console.error(err);
-    process.exit(1);
-  }
-
-  await nonInteractiveConfig.refreshAuth(selectedAuthType);
-  return nonInteractiveConfig;
 }
