@@ -321,7 +321,7 @@ export class Config {
   }
 
   async refreshAuth(authMethod: AuthType) {
-    this.contentGeneratorConfig = createContentGeneratorConfig(
+    this.contentGeneratorConfig = await createContentGeneratorConfig(
       this,
       authMethod,
     );
