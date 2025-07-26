@@ -31,14 +31,18 @@ export const useAuthCommand = (
 
   useEffect(() => {
     const authFlow = async () => {
-      const authType = settings.merged.selectedAuthType;
+      // Priority: CLI argument > settings file
+      const cliAuthType = config.getAuthType();
+      const settingsAuthType = settings.merged.selectedAuthType;
+      const authType = cliAuthType || settingsAuthType;
+      
       if (isAuthDialogOpen || !authType) {
         return;
       }
 
       try {
         setIsAuthenticating(true);
-        await config.refreshAuth(authType);
+        await config.refreshAuth(authType as AuthType);
         console.log(`Authenticated via "${authType}".`);
       } catch (e) {
         setAuthError(`Failed to login. Message: ${getErrorMessage(e)}`);

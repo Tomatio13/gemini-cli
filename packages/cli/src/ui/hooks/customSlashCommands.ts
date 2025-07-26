@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
-import { SlashCommand, CommandContext, SlashCommandActionReturn } from '../commands/types.js';
+import { SlashCommand, CommandContext, SlashCommandActionReturn, CommandKind } from '../commands/types.js';
 import { Config } from '@google/gemini-cli-core';
 import { MessageType } from '../types.js';
 
@@ -222,6 +222,7 @@ export function createCustomSlashCommands(
     return {
       name: commandName,
       description: command.metadata.description || `Custom command: ${command.name}`,
+      kind: CommandKind.FILE,
       action: async (commandContext: CommandContext, args: string): Promise<SlashCommandActionReturn> => {
         try {
           const processedContent = await processDynamicContent(command.content, context, args);

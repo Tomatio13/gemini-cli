@@ -429,6 +429,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   } = useSlashCommandProcessor(
     config,
     settings,
+    history,
     addItem,
     clearItems,
     loadHistory,
@@ -439,9 +440,9 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     openAuthDialog,
     openEditorDialog,
     toggleCorgiMode,
+    false, // showToolDescriptions
     setQuittingMessages,
     openPrivacyNotice,
-    toggleVimEnabled,
   );
 
   const {

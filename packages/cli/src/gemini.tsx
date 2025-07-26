@@ -18,6 +18,7 @@ import {
   LoadedSettings,
   loadSettings,
   SettingScope,
+  USER_SETTINGS_PATH,
 } from './config/settings.js';
 import { themeManager } from './ui/themes/theme-manager.js';
 import { getStartupWarnings } from './utils/startupWarnings.js';
@@ -160,14 +161,17 @@ export async function main() {
       : [];
     const sandboxConfig = config.getSandbox();
     if (sandboxConfig) {
-      if (settings.merged.selectedAuthType) {
+      // Use CLI argument authType if provided, otherwise fall back to settings
+      const effectiveAuthType = config.getAuthType() || settings.merged.selectedAuthType;
+      
+      if (effectiveAuthType) {
         // Validate authentication here because the sandbox will interfere with the Oauth2 web redirect.
         try {
-          const err = validateAuthMethod(settings.merged.selectedAuthType);
+          const err = validateAuthMethod(effectiveAuthType);
           if (err) {
             throw new Error(err);
           }
-          await config.refreshAuth(settings.merged.selectedAuthType);
+          await config.refreshAuth(effectiveAuthType as AuthType);
         } catch (err) {
           console.error('Error authenticating:', err);
           process.exit(1);
@@ -185,12 +189,14 @@ export async function main() {
     }
   }
 
+  const finalAuthType = config.getAuthType() || settings.merged.selectedAuthType;
+  
   if (
-    settings.merged.selectedAuthType === AuthType.LOGIN_WITH_GOOGLE &&
+    finalAuthType === AuthType.LOGIN_WITH_GOOGLE &&
     config.isBrowserLaunchSuppressed()
   ) {
     // Do oauth before app renders to make copying the link possible.
-    await getOauthClient(settings.merged.selectedAuthType, config);
+    await getOauthClient(finalAuthType, config);
   }
 
   if (config.getExperimentalAcp()) {
@@ -245,12 +251,13 @@ export async function main() {
     prompt_length: input.length,
   });
 
-  // Non-interactive mode handled by runNonInteractive
+  // Non-interactive mode handled by runNonInteractive  
+  // Pass the authType from the already-initialized config
   const nonInteractiveConfig = await loadNonInteractiveConfig(
     config,
     extensions,
     settings,
-    argv,
+    config.getAuthType(),
   );
 
   await runNonInteractive(nonInteractiveConfig, input, prompt_id);
@@ -291,7 +298,7 @@ async function loadNonInteractiveConfig(
   config: Config,
   extensions: Extension[],
   settings: LoadedSettings,
-  argv: CliArgs,
+  cliAuthType?: string,
 ) {
   let finalConfig = config;
   if (config.getApprovalMode() !== ApprovalMode.YOLO) {
@@ -311,17 +318,63 @@ async function loadNonInteractiveConfig(
       ...settings.merged,
       excludeTools: newExcludeTools,
     };
+    
+    // Get current argv to pass to loadCliConfig, but override authType if needed
+    const currentArgv = await parseArguments();
+    const modifiedArgv = { ...currentArgv, authType: cliAuthType || currentArgv.authType };
+    
     finalConfig = await loadCliConfig(
       nonInteractiveSettings,
       extensions,
       config.getSessionId(),
-      argv,
+      modifiedArgv,
     );
     await finalConfig.initialize();
   }
 
-  return await validateNonInteractiveAuth(
+  return await validateNonInterActiveAuthInline(
     settings.merged.selectedAuthType,
     finalConfig,
+    cliAuthType,
   );
+}
+
+async function validateNonInterActiveAuthInline(
+  selectedAuthType: AuthType | undefined,
+  nonInteractiveConfig: Config,
+  cliAuthType?: string,
+) {
+  // Use CLI auth-type if provided, otherwise fall back to settings or environment
+  if (cliAuthType) {
+    selectedAuthType = cliAuthType as AuthType;
+  } else if (!selectedAuthType) {
+    // Check for various API keys to auto-detect auth type
+    // Prioritize Gemini API key over others to prevent unwanted auto-switching
+    if (process.env.GEMINI_API_KEY) {
+      selectedAuthType = AuthType.USE_GEMINI;
+    } else if (process.env.GOOGLE_API_KEY) {
+      selectedAuthType = AuthType.USE_VERTEX_AI;
+    } else if (process.env.OPENAI_API_KEY) {
+      // Only use OpenAI if no Gemini keys are available
+      selectedAuthType = AuthType.USE_OPENAI_COMPATIBLE;
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      selectedAuthType = AuthType.USE_ANTHROPIC;
+    } else if (process.env.CUSTOM_BASE_URL) {
+      selectedAuthType = AuthType.USE_LOCAL_LLM;
+    } else {
+      console.error(
+        `Please set an Auth method in your settings OR specify GEMINI_API_KEY env variable file before running`,
+      );
+      process.exit(1);
+    }
+  }
+
+  const err = validateAuthMethod(selectedAuthType);
+  if (err != null) {
+    console.error(err);
+    process.exit(1);
+  }
+
+  await nonInteractiveConfig.refreshAuth(selectedAuthType);
+  return nonInteractiveConfig;
 }

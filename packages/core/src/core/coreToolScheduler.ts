@@ -222,6 +222,7 @@ interface CoreToolSchedulerOptions {
   approvalMode?: ApprovalMode;
   getPreferredEditor: () => EditorType | undefined;
   config: Config;
+  hookExecutor?: import('../hooks/hookExecutor.js').HookExecutor;
 }
 
 export class CoreToolScheduler {
@@ -233,6 +234,7 @@ export class CoreToolScheduler {
   private approvalMode: ApprovalMode;
   private getPreferredEditor: () => EditorType | undefined;
   private config: Config;
+  private hookExecutor?: import('../hooks/hookExecutor.js').HookExecutor;
 
   constructor(options: CoreToolSchedulerOptions) {
     this.config = options.config;
@@ -242,6 +244,7 @@ export class CoreToolScheduler {
     this.onToolCallsUpdate = options.onToolCallsUpdate;
     this.approvalMode = options.approvalMode ?? ApprovalMode.DEFAULT;
     this.getPreferredEditor = options.getPreferredEditor;
+    this.hookExecutor = options.hookExecutor;
   }
 
   private setStatusInternal(

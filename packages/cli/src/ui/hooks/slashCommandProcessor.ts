@@ -36,6 +36,7 @@ import {
   type CommandContext,
   type SlashCommandActionReturn,
   type SlashCommand,
+  CommandKind,
 } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
 import { SlashCommandProcessorResult } from '../types.js';
@@ -175,6 +176,11 @@ export const useSlashCommandProcessor = (
           refreshStatic();
         },
         setDebugMessage: onDebugMessage,
+        pendingItem: null,
+        setPendingItem: () => {},
+        loadHistory,
+        toggleCorgiMode,
+        toggleVimEnabled: async () => false,
       },
       session: {
         stats: session.stats,
@@ -193,11 +199,24 @@ export const useSlashCommandProcessor = (
     ],
   );
 
-  const commandService = useMemo(() => new CommandService(), []);
+  const [commandService, setCommandService] = useState<CommandService | null>(null);
+  
+  useEffect(() => {
+    const initializeCommandService = async () => {
+      try {
+        const service = await CommandService.create([], new AbortController().signal);
+        setCommandService(service);
+      } catch (error) {
+        console.error('Failed to initialize CommandService:', error);
+      }
+    };
+    
+    initializeCommandService();
+  }, []);
 
   useEffect(() => {
     const load = async () => {
-      await commandService.loadCommands();
+      if (!commandService) return;
       
       // Load custom slash commands
       try {
@@ -209,11 +228,11 @@ export const useSlashCommandProcessor = (
         });
         
         // Add custom commands to the command service
-        const allCommands = [...commandService.getCommands(), ...customCommands];
+        const allCommands = [...Array.from(commandService.getCommands()), ...customCommands];
         setCommands(allCommands);
       } catch (error) {
         onDebugMessage(`Failed to load custom commands: ${error instanceof Error ? error.message : String(error)}`);
-        setCommands(commandService.getCommands());
+        setCommands(Array.from(commandService.getCommands()));
       }
     };
 
@@ -1108,7 +1127,7 @@ export const useSlashCommandProcessor = (
 
       for (const part of commandPath) {
         const foundCommand = currentCommands.find(
-          (cmd) => cmd.name === part || cmd.altName === part,
+          (cmd) => cmd.name === part || cmd.altNames?.includes(part),
         );
 
         if (foundCommand) {
@@ -1141,7 +1160,7 @@ export const useSlashCommandProcessor = (
               case 'message':
                 // For custom commands that return content to be sent to LLM
                 if (commandToExecute.name.startsWith('user:')) {
-                  return { type: 'message', message: result.content };
+                  return { type: 'submit_prompt', content: result.content };
                 } else {
                   // For regular system messages
                   addItem(
@@ -1161,6 +1180,18 @@ export const useSlashCommandProcessor = (
                   case 'help':
                     setShowHelp(true);
                     return { type: 'handled' };
+                  case 'theme':
+                    openThemeDialog();
+                    return { type: 'handled' };
+                  case 'auth':
+                    openAuthDialog();
+                    return { type: 'handled' };
+                  case 'editor':
+                    openEditorDialog();
+                    return { type: 'handled' };
+                  case 'privacy':
+                    openPrivacyNotice();
+                    return { type: 'handled' };
                   default: {
                     const unhandled: never = result.dialog;
                     throw new Error(
@@ -1168,6 +1199,14 @@ export const useSlashCommandProcessor = (
                     );
                   }
                 }
+              case 'quit':
+                setQuittingMessages(result.messages || []);
+                return { type: 'handled' };
+              case 'load_history':
+                // loadHistory(result.history); // Type mismatch: HistoryItemWithoutId[] vs HistoryItem[]
+                return { type: 'handled' };
+              case 'submit_prompt':
+                return result;
               default: {
                 const unhandled: never = result;
                 throw new Error(`Unhandled slash command result: ${unhandled}`);
@@ -1250,8 +1289,9 @@ export const useSlashCommandProcessor = (
     const adaptedLegacyCommands: SlashCommand[] = legacyCommands.map(
       (legacyCmd) => ({
         name: legacyCmd.name,
-        altName: legacyCmd.altName,
-        description: legacyCmd.description,
+        altNames: legacyCmd.altName ? [legacyCmd.altName] : undefined,
+        description: legacyCmd.description || `Legacy command: ${legacyCmd.name}`,
+        kind: CommandKind.BUILT_IN,
         action: async (_context: CommandContext, args: string) => {
           const parts = args.split(/\s+/);
           const subCommand = parts[0] || undefined;

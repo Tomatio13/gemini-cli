@@ -15,6 +15,7 @@ import {
   BugCommandSettings,
   TelemetrySettings,
   AuthType,
+  HookSettings,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
@@ -50,24 +51,6 @@ export interface AccessibilitySettings {
   disableLoadingPhrases?: boolean;
 }
 
-export interface HookCommand {
-  type: 'command';
-  command: string;
-  timeout?: number;
-}
-
-export interface HookMatcher {
-  matcher?: string;
-  hooks: HookCommand[];
-}
-
-export interface HookSettings {
-  PreToolUse?: HookMatcher[];
-  PostToolUse?: HookMatcher[];
-  Notification?: HookMatcher[];
-  Stop?: HookMatcher[];
-  SubagentStop?: HookMatcher[];
-}
 
 export interface Settings {
   theme?: string;
@@ -93,12 +76,24 @@ export interface Settings {
   // Git-aware file filtering settings
   fileFiltering?: {
     respectGitIgnore?: boolean;
+    respectGeminiIgnore?: boolean;
     enableRecursiveFileSearch?: boolean;
   };
 
   // UI setting. Does not display the ANSI-controlled terminal title.
   hideWindowTitle?: boolean;
   hideTips?: boolean;
+  hideBanner?: boolean;
+
+  // Additional features that were lost in upstream merge
+  memoryDiscoveryMaxDirs?: number;
+  ideMode?: boolean;
+  allowMCPServers?: string[];
+  excludeMCPServers?: string[];
+  maxSessionTurns?: number;
+  summarizeToolOutput?: Record<string, any>;
+  customThemes?: Record<string, any>;
+  vimMode?: boolean;
 
   // Add other settings here.
 }

@@ -61,6 +61,7 @@ export interface CliArgs {
   listExtensions: boolean | undefined;
   ideMode: boolean | undefined;
   proxy: string | undefined;
+  authType: string | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -198,6 +199,11 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'string',
       description:
         'Proxy for gemini client, like schema://user:password@host:port',
+    })
+    .option('auth-type', {
+      type: 'string',
+      description: 'Authentication type (gemini-api-key, openai-compatible, anthropic, etc.)',
+      choices: ['gemini-api-key', 'vertex-ai', 'login-with-google', 'cloud-shell', 'openai-compatible', 'anthropic', 'local-llm'],
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -361,6 +367,8 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
+  const finalAuthType = argv.authType || settings.selectedAuthType;
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -424,6 +432,8 @@ export async function loadCliConfig(
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
     ideClient,
+    hooks: settings.hooks,
+    authType: finalAuthType,
   });
 }
 

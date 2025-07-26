@@ -47,6 +47,7 @@ import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js'
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { HookSettings } from '../hooks/hookExecutor.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
@@ -183,6 +184,8 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideMode?: boolean;
   ideClient?: IdeClient;
+  hooks?: HookSettings;
+  authType?: string;
 }
 
 export class Config {
@@ -240,6 +243,8 @@ export class Config {
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
   private readonly experimentalAcp: boolean = false;
+  private readonly hooks: HookSettings | undefined;
+  private readonly authType: string | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -292,6 +297,8 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
+    this.hooks = params.hooks;
+    this.authType = params.authType;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -318,6 +325,38 @@ export class Config {
     }
     this.promptRegistry = new PromptRegistry();
     this.toolRegistry = await this.createToolRegistry();
+    
+    // Initialize content generator with authType
+    // If authType is not set, try to determine it from environment or settings
+    let effectiveAuthType = this.authType;
+    if (!effectiveAuthType) {
+      // Check for various API keys to auto-detect auth type
+      // Prioritize based on availability of API keys
+      if (process.env.GEMINI_API_KEY) {
+        effectiveAuthType = AuthType.USE_GEMINI;
+      } else if (process.env.GOOGLE_API_KEY) {
+        effectiveAuthType = AuthType.USE_VERTEX_AI;
+      } else if (process.env.OPENAI_API_KEY) {
+        effectiveAuthType = AuthType.USE_OPENAI_COMPATIBLE;
+      } else if (process.env.ANTHROPIC_API_KEY) {
+        effectiveAuthType = AuthType.USE_ANTHROPIC;
+      } else if (process.env.CUSTOM_BASE_URL) {
+        effectiveAuthType = AuthType.USE_LOCAL_LLM;
+      } else if (process.env.CLOUD_SHELL === 'true') {
+        effectiveAuthType = AuthType.CLOUD_SHELL;
+      } else {
+        effectiveAuthType = AuthType.LOGIN_WITH_GOOGLE; // Default fallback
+      }
+    }
+    
+    if (effectiveAuthType) {
+      this.contentGeneratorConfig = await createContentGeneratorConfig(
+        this,
+        effectiveAuthType as AuthType,
+      );
+      this.geminiClient = new GeminiClient(this);
+      await this.geminiClient.initialize(this.contentGeneratorConfig);
+    }
   }
 
   async refreshAuth(authMethod: AuthType) {
@@ -405,6 +444,16 @@ export class Config {
 
   getDebugMode(): boolean {
     return this.debugMode;
+  }
+  getHooks(): HookSettings | undefined {
+    return this.hooks;
+  }
+  getTranscriptPath(): Promise<string> {
+    // Return a transcript path based on session ID
+    return Promise.resolve(`/tmp/gemini-transcript-${this.sessionId}.json`);
+  }
+  getAuthType(): string | undefined {
+    return this.authType;
   }
   getQuestion(): string | undefined {
     return this.question;
@@ -560,6 +609,9 @@ export class Config {
   }
 
   getExtensions(): GeminiCLIExtension[] {
+    return this._extensions;
+  }
+  getActiveExtensions(): GeminiCLIExtension[] {
     return this._extensions;
   }
 
