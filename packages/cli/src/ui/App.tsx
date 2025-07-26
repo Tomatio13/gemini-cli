@@ -77,6 +77,7 @@ import { useVimMode, VimModeProvider } from './contexts/VimModeContext.js';
 import { useVim } from './hooks/vim.js';
 import * as fs from 'fs';
 import { UpdateNotification } from './components/UpdateNotification.js';
+import { useIdleStopHook } from './hooks/useIdleStopHook.js';
 import {
   isProQuotaExceededError,
   isGenericQuotaExceededError,
@@ -490,6 +491,9 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const { handleInput: vimHandleInput } = useVim(buffer, handleFinalSubmit);
   const pendingHistoryItems = [...pendingSlashCommandHistoryItems];
   pendingHistoryItems.push(...pendingGeminiHistoryItems);
+
+  // Execute Stop hooks when streaming transitions to Idle
+  useIdleStopHook(streamingState, config);
 
   const { elapsedTime, currentLoadingPhrase } =
     useLoadingIndicator(streamingState);
