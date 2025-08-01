@@ -219,7 +219,6 @@ interface CoreToolSchedulerOptions {
   outputUpdateHandler?: OutputUpdateHandler;
   onAllToolCallsComplete?: AllToolCallsCompleteHandler;
   onToolCallsUpdate?: ToolCallsUpdateHandler;
-  approvalMode?: ApprovalMode;
   getPreferredEditor: () => EditorType | undefined;
   config: Config;
   hookExecutor?: import('../hooks/hookExecutor.js').HookExecutor;
@@ -231,7 +230,6 @@ export class CoreToolScheduler {
   private outputUpdateHandler?: OutputUpdateHandler;
   private onAllToolCallsComplete?: AllToolCallsCompleteHandler;
   private onToolCallsUpdate?: ToolCallsUpdateHandler;
-  private approvalMode: ApprovalMode;
   private getPreferredEditor: () => EditorType | undefined;
   private config: Config;
   private hookExecutor?: import('../hooks/hookExecutor.js').HookExecutor;
@@ -242,7 +240,6 @@ export class CoreToolScheduler {
     this.outputUpdateHandler = options.outputUpdateHandler;
     this.onAllToolCallsComplete = options.onAllToolCallsComplete;
     this.onToolCallsUpdate = options.onToolCallsUpdate;
-    this.approvalMode = options.approvalMode ?? ApprovalMode.DEFAULT;
     this.getPreferredEditor = options.getPreferredEditor;
     this.hookExecutor = options.hookExecutor;
   }
@@ -465,7 +462,7 @@ export class CoreToolScheduler {
 
       const { request: reqInfo, tool: toolInstance } = toolCall;
       try {
-        if (this.approvalMode === ApprovalMode.YOLO) {
+        if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
           this.setStatusInternal(reqInfo.callId, 'scheduled');
         } else {
           const confirmationDetails = await toolInstance.shouldConfirmExecute(

@@ -51,6 +51,7 @@ import { HookSettings } from '../hooks/hookExecutor.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
+import { WorkspaceContext } from '../utils/workspaceContext.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -82,6 +83,7 @@ export interface GeminiCLIExtension {
   name: string;
   version: string;
   isActive: boolean;
+  path: string;
 }
 export interface FileFilteringOptions {
   respectGitIgnore: boolean;
@@ -172,6 +174,7 @@ export interface ConfigParameters {
   proxy?: string;
   cwd: string;
   fileDiscoveryService?: FileDiscoveryService;
+  includeDirectories?: string[];
   bugCommand?: BugCommandSettings;
   model: string;
   extensionContextFilePaths?: string[];
@@ -182,8 +185,9 @@ export interface ConfigParameters {
   blockedMcpServers?: Array<{ name: string; extensionName: string }>;
   noBrowser?: boolean;
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
+  ideModeFeature?: boolean;
   ideMode?: boolean;
-  ideClient?: IdeClient;
+  ideClient: IdeClient;
   hooks?: HookSettings;
   authType?: string;
 }
@@ -196,6 +200,7 @@ export class Config {
   private readonly embeddingModel: string;
   private readonly sandbox: SandboxConfig | undefined;
   private readonly targetDir: string;
+  private workspaceContext: WorkspaceContext;
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
   private readonly fullContext: boolean;
@@ -227,9 +232,10 @@ export class Config {
   private readonly model: string;
   private readonly extensionContextFilePaths: string[];
   private readonly noBrowser: boolean;
-  private readonly ideMode: boolean;
-  private readonly ideClient: IdeClient | undefined;
-  private modelSwitchedDuringSession: boolean = false;
+  private readonly ideModeFeature: boolean;
+  private ideMode: boolean;
+  private ideClient: IdeClient;
+  private inFallbackMode = false;
   private readonly maxSessionTurns: number;
   private readonly listExtensions: boolean;
   private readonly _extensions: GeminiCLIExtension[];
@@ -252,6 +258,10 @@ export class Config {
       params.embeddingModel ?? DEFAULT_GEMINI_EMBEDDING_MODEL;
     this.sandbox = params.sandbox;
     this.targetDir = path.resolve(params.targetDir);
+    this.workspaceContext = new WorkspaceContext(
+      this.targetDir,
+      params.includeDirectories ?? [],
+    );
     this.debugMode = params.debugMode;
     this.question = params.question;
     this.fullContext = params.fullContext ?? false;
@@ -295,7 +305,8 @@ export class Config {
     this._blockedMcpServers = params.blockedMcpServers ?? [];
     this.noBrowser = params.noBrowser ?? false;
     this.summarizeToolOutput = params.summarizeToolOutput;
-    this.ideMode = params.ideMode ?? false;
+    this.ideModeFeature = params.ideModeFeature ?? false;
+    this.ideMode = params.ideMode ?? true;
     this.ideClient = params.ideClient;
     this.hooks = params.hooks;
     this.authType = params.authType;
@@ -369,7 +380,7 @@ export class Config {
     await this.geminiClient.initialize(this.contentGeneratorConfig);
 
     // Reset the session flag since we're explicitly changing auth and using default model
-    this.modelSwitchedDuringSession = false;
+    this.inFallbackMode = false;
   }
 
   getSessionId(): string {
@@ -387,19 +398,15 @@ export class Config {
   setModel(newModel: string): void {
     if (this.contentGeneratorConfig) {
       this.contentGeneratorConfig.model = newModel;
-      this.modelSwitchedDuringSession = true;
     }
   }
 
-  isModelSwitchedDuringSession(): boolean {
-    return this.modelSwitchedDuringSession;
+  isInFallbackMode(): boolean {
+    return this.inFallbackMode;
   }
 
-  resetModelToDefault(): void {
-    if (this.contentGeneratorConfig) {
-      this.contentGeneratorConfig.model = this.model; // Reset to the original default model
-      this.modelSwitchedDuringSession = false;
-    }
+  setFallbackMode(active: boolean): void {
+    this.inFallbackMode = active;
   }
 
   setFlashFallbackHandler(handler: FlashFallbackHandler): void {
@@ -426,12 +433,27 @@ export class Config {
     return this.sandbox;
   }
 
+  isRestrictiveSandbox(): boolean {
+    const sandboxConfig = this.getSandbox();
+    const seatbeltProfile = process.env.SEATBELT_PROFILE;
+    return (
+      !!sandboxConfig &&
+      sandboxConfig.command === 'sandbox-exec' &&
+      !!seatbeltProfile &&
+      seatbeltProfile.startsWith('restrictive-')
+    );
+  }
+
   getTargetDir(): string {
     return this.targetDir;
   }
 
   getProjectRoot(): string {
     return this.targetDir;
+  }
+
+  getWorkspaceContext(): WorkspaceContext {
+    return this.workspaceContext;
   }
 
   getToolRegistry(): Promise<ToolRegistry> {
@@ -633,12 +655,28 @@ export class Config {
     return this.summarizeToolOutput;
   }
 
+  getIdeModeFeature(): boolean {
+    return this.ideModeFeature;
+  }
+
+  getIdeClient(): IdeClient {
+    return this.ideClient;
+  }
+
   getIdeMode(): boolean {
     return this.ideMode;
   }
 
-  getIdeClient(): IdeClient | undefined {
-    return this.ideClient;
+  setIdeMode(value: boolean): void {
+    this.ideMode = value;
+  }
+
+  setIdeClientDisconnected(): void {
+    this.ideClient.setDisconnected();
+  }
+
+  setIdeClientConnected(): void {
+    this.ideClient.reconnect(this.ideMode && this.ideModeFeature);
   }
 
   async getGitService(): Promise<GitService> {

@@ -13,6 +13,8 @@ import process from 'node:process';
 import Gradient from 'ink-gradient';
 import { MemoryUsageDisplay } from './MemoryUsageDisplay.js';
 
+import { DebugProfiler } from './DebugProfiler.js';
+
 interface FooterProps {
   model: string;
   targetDir: string;
@@ -46,8 +48,9 @@ export const Footer: React.FC<FooterProps> = ({
   const percentage = promptTokenCount / limit;
 
   return (
-    <Box marginTop={1} justifyContent="space-between" width="100%">
+    <Box justifyContent="space-between" width="100%">
       <Box>
+        {debugMode && <DebugProfiler />}
         {vimMode && <Text color={Colors.Gray}>[{vimMode}] </Text>}
         {nightly ? (
           <Gradient colors={Colors.GradientColors}>

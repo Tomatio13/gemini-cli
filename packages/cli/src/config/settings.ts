@@ -94,6 +94,17 @@ export interface Settings {
   summarizeToolOutput?: Record<string, any>;
   customThemes?: Record<string, any>;
   vimMode?: boolean;
+  memoryImportFormat?: 'tree' | 'flat';
+
+  // Flag to be removed post-launch.
+  ideModeFeature?: boolean;
+  /// IDE mode setting configured via slash command toggle.
+  ideMode?: boolean;
+
+  // Setting for disabling auto-update.
+  disableAutoUpdate?: boolean;
+
+  memoryDiscoveryMaxDirs?: number;
 
   // Add other settings here.
 }
