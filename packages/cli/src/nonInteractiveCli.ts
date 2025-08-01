@@ -288,6 +288,8 @@ export async function runNonInteractive(
         currentMessages = [{ role: 'user', parts: toolResponseParts }];
 
         // Execute Stop hooks after all tools in this turn are completed
+        // Note: In non-interactive mode, this is the appropriate timing for Stop hooks
+        // as each turn represents a complete interaction cycle
         const hooks = config.getHooks();
         if (hooks && Object.keys(hooks).length > 0) {
           const { HookExecutor } = await import('@google/gemini-cli-core');

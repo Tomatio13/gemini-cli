@@ -773,22 +773,9 @@ export class CoreToolScheduler {
         logToolCall(this.config, new ToolCallEvent(call));
       }
 
-      // Execute Stop hooks when all tools are completed
-      if (this.hookExecutor) {
-        (async () => {
-          try {
-            await this.hookExecutor!.executeHooks('Stop', {
-              session_id: sessionId,
-              transcript_path: await this.config.getTranscriptPath(),
-              completed_calls: completedCalls.length,
-              successful_calls: completedCalls.filter(c => c.status === 'success').length,
-              error_calls: completedCalls.filter(c => c.status === 'error').length,
-            });
-          } catch (error) {
-            console.warn('Stop hook execution failed:', error);
-          }
-        })();
-      }
+      // Note: Stop hooks are now handled by useIdleStopHook in the UI layer
+      // to prevent premature execution during tool transitions
+      // Individual tool completion doesn't necessarily mean the entire response is complete
 
       if (this.onAllToolCallsComplete) {
         this.onAllToolCallsComplete(completedCalls);

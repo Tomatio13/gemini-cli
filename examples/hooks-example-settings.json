@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[HOOK] Session ending - goodbye!' >&2"
+            "command": "echo '[HOOK] AI response completed - ready for next input!' >&2"
           }
         ]
       }
