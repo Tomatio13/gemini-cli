@@ -109,7 +109,7 @@ export const ideCommand = (config: Config | null): SlashCommand | null => {
     description: 'enable IDE integration',
     kind: CommandKind.BUILT_IN,
     action: async (context: CommandContext) => {
-      context.services.settings.setValue(SettingScope.User, 'ideMode', true);
+      context.services.settings.setValue(SettingScope.User, 'ideMode', 'true');
       config.setIdeMode(true);
       config.setIdeClientConnected();
     },
@@ -120,7 +120,7 @@ export const ideCommand = (config: Config | null): SlashCommand | null => {
     description: 'disable IDE integration',
     kind: CommandKind.BUILT_IN,
     action: async (context: CommandContext) => {
-      context.services.settings.setValue(SettingScope.User, 'ideMode', false);
+      context.services.settings.setValue(SettingScope.User, 'ideMode', 'false');
       config.setIdeMode(false);
       config.setIdeClientDisconnected();
     },

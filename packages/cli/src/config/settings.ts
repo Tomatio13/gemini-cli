@@ -85,9 +85,6 @@ export interface Settings {
   hideTips?: boolean;
   hideBanner?: boolean;
 
-  // Additional features that were lost in upstream merge
-  memoryDiscoveryMaxDirs?: number;
-  ideMode?: boolean;
   allowMCPServers?: string[];
   excludeMCPServers?: string[];
   maxSessionTurns?: number;
