@@ -22,7 +22,9 @@ export class CustomSlashCommandLoader implements ICommandLoader {
   async loadCommands(_signal: AbortSignal): Promise<SlashCommand[]> {
     try {
       const customCommandFiles = await discoverCustomSlashCommands();
+      console.debug(`[CustomSlashCommandLoader] Found ${customCommandFiles.length} custom command files:`, customCommandFiles.map(f => f.name));
       const customCommands = createCustomSlashCommands(customCommandFiles, this.context);
+      console.debug(`[CustomSlashCommandLoader] Created ${customCommands.length} custom commands:`, customCommands.map(c => c.name));
       return customCommands;
     } catch (error) {
       console.debug('Failed to load custom slash commands:', error);

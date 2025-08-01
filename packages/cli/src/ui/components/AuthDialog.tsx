@@ -79,24 +79,29 @@ export function AuthDialog({
     { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
   ];
 
-  const initialAuthIndex = items.findIndex((item) => {
-    if (settings.merged.selectedAuthType) {
-      return item.value === settings.merged.selectedAuthType;
-    }
+  const initialAuthIndex = (() => {
+    const foundIndex = items.findIndex((item) => {
+      if (settings.merged.selectedAuthType) {
+        return item.value === settings.merged.selectedAuthType;
+      }
 
-    const defaultAuthType = parseDefaultAuthType(
-      process.env.GEMINI_DEFAULT_AUTH_TYPE,
-    );
-    if (defaultAuthType) {
-      return item.value === defaultAuthType;
-    }
+      const defaultAuthType = parseDefaultAuthType(
+        process.env.GEMINI_DEFAULT_AUTH_TYPE,
+      );
+      if (defaultAuthType) {
+        return item.value === defaultAuthType;
+      }
 
-    if (process.env.GEMINI_API_KEY) {
-      return item.value === AuthType.USE_GEMINI;
-    }
+      if (process.env.GEMINI_API_KEY) {
+        return item.value === AuthType.USE_GEMINI;
+      }
 
-    return item.value === AuthType.LOGIN_WITH_GOOGLE;
-  });
+      return item.value === AuthType.LOGIN_WITH_GOOGLE;
+    });
+    
+    // findIndex が -1 を返す場合は 0 を使用（最初の項目を選択）
+    return foundIndex >= 0 ? foundIndex : 0;
+  })();
 
   const handleAuthSelect = (authMethod: AuthType) => {
     const error = validateAuthMethod(authMethod);

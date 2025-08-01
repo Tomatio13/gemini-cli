@@ -19,6 +19,7 @@ import {
   logToolCall,
   ToolCallEvent,
   ToolConfirmationPayload,
+  sessionId,
 } from '../index.js';
 import { Part, PartListUnion } from '@google/genai';
 import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
@@ -639,7 +640,7 @@ export class CoreToolScheduler {
         (call) => call.status === 'scheduled',
       );
 
-      callsToExecute.forEach((toolCall) => {
+      callsToExecute.forEach(async (toolCall) => {
         if (toolCall.status !== 'scheduled') return;
 
         const scheduledCall = toolCall;
@@ -660,6 +661,23 @@ export class CoreToolScheduler {
                 this.notifyToolCallsUpdate();
               }
             : undefined;
+
+        // Execute PreToolUse hooks
+        if (this.hookExecutor) {
+          (async () => {
+            try {
+              await this.hookExecutor!.executeHooks('PreToolUse', {
+                session_id: sessionId,
+                transcript_path: await this.config.getTranscriptPath(),
+                tool_name: toolName,
+                call_id: callId,
+                args: scheduledCall.request.args,
+              });
+            } catch (error) {
+              console.warn('PreToolUse hook execution failed:', error);
+            }
+          })();
+        }
 
         scheduledCall.tool
           .execute(scheduledCall.request.args, signal, liveOutputCallback)
@@ -686,6 +704,24 @@ export class CoreToolScheduler {
             };
 
             this.setStatusInternal(callId, 'success', successResponse);
+
+            // Execute PostToolUse hooks
+            if (this.hookExecutor) {
+              (async () => {
+                try {
+                  await this.hookExecutor!.executeHooks('PostToolUse', {
+                    session_id: sessionId,
+                    transcript_path: await this.config.getTranscriptPath(),
+                    tool_name: toolName,
+                    call_id: callId,
+                    args: scheduledCall.request.args,
+                    result: toolResult.llmContent,
+                  });
+                } catch (error) {
+                  console.warn('PostToolUse hook execution failed:', error);
+                }
+              })();
+            }
           })
           .catch((executionError: Error) => {
             this.setStatusInternal(
@@ -698,6 +734,24 @@ export class CoreToolScheduler {
                   : new Error(String(executionError)),
               ),
             );
+
+            // Execute PostToolUse hooks even on error
+            if (this.hookExecutor) {
+              (async () => {
+                try {
+                  await this.hookExecutor!.executeHooks('PostToolUse', {
+                    session_id: sessionId,
+                    transcript_path: await this.config.getTranscriptPath(),
+                    tool_name: toolName,
+                    call_id: callId,
+                    args: scheduledCall.request.args,
+                    error: executionError.message,
+                  });
+                } catch (error) {
+                  console.warn('PostToolUse hook execution failed:', error);
+                }
+              })();
+            }
           });
       });
     }
@@ -717,6 +771,23 @@ export class CoreToolScheduler {
 
       for (const call of completedCalls) {
         logToolCall(this.config, new ToolCallEvent(call));
+      }
+
+      // Execute Stop hooks when all tools are completed
+      if (this.hookExecutor) {
+        (async () => {
+          try {
+            await this.hookExecutor!.executeHooks('Stop', {
+              session_id: sessionId,
+              transcript_path: await this.config.getTranscriptPath(),
+              completed_calls: completedCalls.length,
+              successful_calls: completedCalls.filter(c => c.status === 'success').length,
+              error_calls: completedCalls.filter(c => c.status === 'error').length,
+            });
+          } catch (error) {
+            console.warn('Stop hook execution failed:', error);
+          }
+        })();
       }
 
       if (this.onAllToolCallsComplete) {

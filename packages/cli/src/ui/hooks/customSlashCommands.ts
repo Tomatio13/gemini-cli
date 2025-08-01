@@ -232,10 +232,9 @@ export function createCustomSlashCommands(
             timestamp: new Date(),
           });
           
-          // Return message action to indicate the content should be sent to LLM
+          // Return submit_prompt to send the content directly to LLM
           return {
-            type: 'message',
-            messageType: 'info',
+            type: 'submit_prompt',
             content: processedContent,
           };
         } catch (error) {

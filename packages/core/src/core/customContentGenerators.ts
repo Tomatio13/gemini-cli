@@ -290,9 +290,9 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
         if ('functionDeclarations' in tool && tool.functionDeclarations) {
           for (const funcDecl of tool.functionDeclarations) {
             // Sanitize and validate parameters for OpenAI compatibility
-            const sanitizedParameters = this.sanitizeParametersForOpenAI(
-              funcDecl.parameters || { type: 'object', properties: {} }
-            );
+            // MCPツールではparametersJsonSchemaを使用し、通常のツールではparametersを使用
+            const parametersToUse = funcDecl.parametersJsonSchema || funcDecl.parameters || { type: 'object', properties: {} };
+            const sanitizedParameters = this.sanitizeParametersForOpenAI(parametersToUse);
 
             openAITools.push({
               type: 'function',
@@ -571,17 +571,17 @@ export class OpenAICompatibleContentGenerator implements ContentGenerator {
       for (const toolCall of message.tool_calls) {
 
         if ((toolCall.type === 'function' || isStream) && toolCall.function) {
-          if (isStream && toolCallAccumulator && indexToIdMap) {
+          if (isStream && toolCallAccumulator) {
             // Handle streaming tool calls - accumulate arguments
             const index = toolCall.index || 0;
 
             // If this chunk has an ID, store the mapping
-            if (toolCall.id) {
+            if (toolCall.id && indexToIdMap) {
               indexToIdMap.set(index, toolCall.id);
             }
 
             // Get the actual call ID from the mapping or use the current ID
-            const callId = indexToIdMap.get(index) || toolCall.id || `call_${index}`;
+            const callId = (indexToIdMap && indexToIdMap.get(index)) || toolCall.id || `call_${index}`;
 
             if (!toolCallAccumulator.has(callId)) {
               toolCallAccumulator.set(callId, {

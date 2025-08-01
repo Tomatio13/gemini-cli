@@ -137,8 +137,14 @@ export function useReactToolScheduler(
       // Create HookExecutor if hooks are configured
       let hookExecutor;
       const hooks = config.getHooks();
+      if (config.getDebugMode()) {
+        console.log('[DEBUG] useReactToolScheduler: hooks configuration:', hooks);
+      }
       if (hooks && Object.keys(hooks).length > 0) {
         hookExecutor = new HookExecutor(hooks, config.getDebugMode());
+        if (config.getDebugMode()) {
+          console.log('[DEBUG] useReactToolScheduler: HookExecutor created');
+        }
       }
 
       return new CoreToolScheduler({

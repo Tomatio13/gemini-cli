@@ -311,6 +311,11 @@ export class Config {
     this.hooks = params.hooks;
     this.authType = params.authType;
 
+    // Debug: Log hook configuration
+    if (this.debugMode && this.hooks) {
+      console.log('[DEBUG] Hook configuration loaded:', JSON.stringify(this.hooks, null, 2));
+    }
+
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
     }

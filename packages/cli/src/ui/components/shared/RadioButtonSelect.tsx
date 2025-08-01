@@ -59,7 +59,9 @@ export function RadioButtonSelect<T>({
   maxItemsToShow = 10,
   showNumbers = true,
 }: RadioButtonSelectProps<T>): React.JSX.Element {
-  const [activeIndex, setActiveIndex] = useState(initialIndex);
+  // initialIndex が有効な範囲内にあることを確認
+  const safeInitialIndex = Math.max(0, Math.min(initialIndex, Math.max(0, items.length - 1)));
+  const [activeIndex, setActiveIndex] = useState(safeInitialIndex);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [numberInput, setNumberInput] = useState('');
   const numberInputTimer = useRef<NodeJS.Timeout | null>(null);
@@ -96,21 +98,28 @@ export function RadioButtonSelect<T>({
       }
 
       if (input === 'k' || key.upArrow) {
-        const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
-        setActiveIndex(newIndex);
-        onHighlight?.(items[newIndex]!.value);
+        if (items.length > 0) {
+          const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
+          setActiveIndex(newIndex);
+          onHighlight?.(items[newIndex]!.value);
+        }
         return;
       }
 
       if (input === 'j' || key.downArrow) {
-        const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
-        setActiveIndex(newIndex);
-        onHighlight?.(items[newIndex]!.value);
+        if (items.length > 0) {
+          const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
+          setActiveIndex(newIndex);
+          onHighlight?.(items[newIndex]!.value);
+        }
         return;
       }
 
       if (key.return) {
-        onSelect(items[activeIndex]!.value);
+        // activeIndex が有効な範囲内にあることを確認
+        if (activeIndex >= 0 && activeIndex < items.length) {
+          onSelect(items[activeIndex]!.value);
+        }
         return;
       }
 

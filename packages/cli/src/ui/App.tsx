@@ -26,6 +26,7 @@ import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
+import { useIdleStopHook } from './hooks/useIdleStopHook.js';
 import { Header } from './components/Header.js';
 import { LoadingIndicator } from './components/LoadingIndicator.js';
 import { AutoAcceptIndicator } from './components/AutoAcceptIndicator.js';
@@ -529,6 +530,9 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const { elapsedTime, currentLoadingPhrase } =
     useLoadingIndicator(streamingState);
   const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
+  
+  // Execute Stop hooks when streaming state becomes Idle
+  useIdleStopHook(streamingState, config);
 
   const handleExit = useCallback(
     (
