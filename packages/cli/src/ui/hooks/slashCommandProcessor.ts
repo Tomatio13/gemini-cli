@@ -31,6 +31,7 @@ import { CommandService } from '../../services/CommandService.js';
 import { BuiltinCommandLoader } from '../../services/BuiltinCommandLoader.js';
 import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
+import { CustomSlashCommandLoader } from '../../services/CustomSlashCommandLoader.js';
 
 /**
  * Hook to define and process slash commands (e.g., /help, /clear).
@@ -187,6 +188,11 @@ export const useSlashCommandProcessor = (
 
   const ideMode = config?.getIdeMode();
 
+  // Create custom slash command context
+  const customSlashCommandContext = useMemo(() => ({
+    addMessage: addMessage,
+  }), [addMessage]);
+
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
@@ -194,6 +200,7 @@ export const useSlashCommandProcessor = (
         new McpPromptLoader(config),
         new BuiltinCommandLoader(config),
         new FileCommandLoader(config),
+        new CustomSlashCommandLoader(customSlashCommandContext),
       ];
       const commandService = await CommandService.create(
         loaders,
@@ -207,7 +214,7 @@ export const useSlashCommandProcessor = (
     return () => {
       controller.abort();
     };
-  }, [config, ideMode]);
+  }, [config, ideMode, customSlashCommandContext]);
 
   const handleSlashCommand = useCallback(
     async (

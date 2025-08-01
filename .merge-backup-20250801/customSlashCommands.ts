@@ -27,6 +27,8 @@ export interface CustomSlashCommandFile {
 
 export interface CustomSlashCommandContext {
   addMessage: (message: any) => void; // Simplified to avoid complex Message type conflicts
+  config?: Config;
+  onDebugMessage: (message: string) => void;
 }
 
 /**
@@ -136,7 +138,7 @@ async function processDynamicContent(
       processedContent = processedContent.replace(match[0], output);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.debug(`Failed to execute bash command '${command}': ${errorMessage}`);
+      context.onDebugMessage(`Failed to execute bash command '${command}': ${errorMessage}`);
       processedContent = processedContent.replace(match[0], `[Command failed: ${errorMessage}]`);
     }
   }
@@ -151,7 +153,7 @@ async function processDynamicContent(
       processedContent = processedContent.replace(fileMatch[0], `\n\`\`\`\n${fileContent}\n\`\`\`\n`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.debug(`Failed to read file '${filePath}': ${errorMessage}`);
+      context.onDebugMessage(`Failed to read file '${filePath}': ${errorMessage}`);
       processedContent = processedContent.replace(fileMatch[0], `[File not found: ${filePath}]`);
     }
   }
