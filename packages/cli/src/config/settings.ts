@@ -35,7 +35,6 @@ function getSystemSettingsPath(): string {
   }
 }
 
-<<<<<<< HEAD
 export type DnsResolutionOrder = 'ipv4first' | 'verbatim';
 
 export const SYSTEM_SETTINGS_PATH = getSystemSettingsPath();

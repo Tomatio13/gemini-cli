@@ -749,7 +749,7 @@ export class CoreToolScheduler {
                       tool_name: toolName,
                       call_id: callId,
                       args: scheduledCall.request.args,
-                      result: toolResult.error.message,
+                      result: toolResult.error?.message || 'Unknown error',
                     });
                   } catch (error) {
                     console.warn('PostToolUse hook execution failed:', error);

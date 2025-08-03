@@ -387,6 +387,7 @@ async function loadNonInteractiveConfig(
 
 async function validateNonInterActiveAuthInline(
   selectedAuthType: AuthType | undefined,
+  useExternalAuth: boolean | undefined,
   nonInteractiveConfig: Config,
   cliAuthType?: string,
 ) {
@@ -415,10 +416,12 @@ async function validateNonInterActiveAuthInline(
     }
   }
 
-  const err = validateAuthMethod(selectedAuthType);
-  if (err != null) {
-    console.error(err);
-    process.exit(1);
+  if (!useExternalAuth) {
+    const err = validateAuthMethod(selectedAuthType);
+    if (err != null) {
+      console.error(err);
+      process.exit(1);
+    }
   }
 
   await nonInteractiveConfig.refreshAuth(selectedAuthType);
