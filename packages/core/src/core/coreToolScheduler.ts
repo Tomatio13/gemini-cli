@@ -20,6 +20,7 @@ import {
   ToolCallEvent,
   ToolConfirmationPayload,
   sessionId,
+  ToolErrorType,
 } from '../index.js';
 import { Part, PartListUnion } from '@google/genai';
 import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
@@ -202,6 +203,7 @@ export function convertToFunctionResponse(
 const createErrorResponse = (
   request: ToolCallRequestInfo,
   error: Error,
+  errorType: ToolErrorType | undefined,
 ): ToolCallResponseInfo => ({
   callId: request.callId,
   error,
@@ -213,6 +215,7 @@ const createErrorResponse = (
     },
   },
   resultDisplay: error.message,
+  errorType,
 });
 
 interface CoreToolSchedulerOptions {
@@ -370,6 +373,7 @@ export class CoreToolScheduler {
               },
               resultDisplay,
               error: undefined,
+              errorType: undefined,
             },
             durationMs,
             outcome,
@@ -440,6 +444,7 @@ export class CoreToolScheduler {
             response: createErrorResponse(
               reqInfo,
               new Error(`Tool "${reqInfo.name}" not found in registry.`),
+              ToolErrorType.TOOL_NOT_REGISTERED,
             ),
             durationMs: 0,
           };
@@ -503,6 +508,7 @@ export class CoreToolScheduler {
           createErrorResponse(
             reqInfo,
             error instanceof Error ? error : new Error(String(error)),
+            ToolErrorType.UNHANDLED_EXCEPTION,
           ),
         );
       }
@@ -691,36 +697,65 @@ export class CoreToolScheduler {
               return;
             }
 
-            const response = convertToFunctionResponse(
-              toolName,
-              callId,
-              toolResult.llmContent,
-            );
-            const successResponse: ToolCallResponseInfo = {
-              callId,
-              responseParts: response,
-              resultDisplay: toolResult.returnDisplay,
-              error: undefined,
-            };
+            if (toolResult.error === undefined) {
+              const response = convertToFunctionResponse(
+                toolName,
+                callId,
+                toolResult.llmContent,
+              );
+              const successResponse: ToolCallResponseInfo = {
+                callId,
+                responseParts: response,
+                resultDisplay: toolResult.returnDisplay,
+                error: undefined,
+                errorType: undefined,
+              };
+              this.setStatusInternal(callId, 'success', successResponse);
 
-            this.setStatusInternal(callId, 'success', successResponse);
+              // Execute PostToolUse hooks on success
+              if (this.hookExecutor) {
+                (async () => {
+                  try {
+                    await this.hookExecutor!.executeHooks('PostToolUse', {
+                      session_id: sessionId,
+                      transcript_path: await this.config.getTranscriptPath(),
+                      tool_name: toolName,
+                      call_id: callId,
+                      args: scheduledCall.request.args,
+                      result: toolResult.llmContent,
+                    });
+                  } catch (error) {
+                    console.warn('PostToolUse hook execution failed:', error);
+                  }
+                })();
+              }
+            } else {
+              // It is a failure
+              const error = new Error(toolResult.error.message);
+              const errorResponse = createErrorResponse(
+                scheduledCall.request,
+                error,
+                toolResult.error.type,
+              );
+              this.setStatusInternal(callId, 'error', errorResponse);
 
-            // Execute PostToolUse hooks
-            if (this.hookExecutor) {
-              (async () => {
-                try {
-                  await this.hookExecutor!.executeHooks('PostToolUse', {
-                    session_id: sessionId,
-                    transcript_path: await this.config.getTranscriptPath(),
-                    tool_name: toolName,
-                    call_id: callId,
-                    args: scheduledCall.request.args,
-                    result: toolResult.llmContent,
-                  });
-                } catch (error) {
-                  console.warn('PostToolUse hook execution failed:', error);
-                }
-              })();
+              // Execute PostToolUse hooks even on error
+              if (this.hookExecutor) {
+                (async () => {
+                  try {
+                    await this.hookExecutor!.executeHooks('PostToolUse', {
+                      session_id: sessionId,
+                      transcript_path: await this.config.getTranscriptPath(),
+                      tool_name: toolName,
+                      call_id: callId,
+                      args: scheduledCall.request.args,
+                      result: toolResult.error.message,
+                    });
+                  } catch (error) {
+                    console.warn('PostToolUse hook execution failed:', error);
+                  }
+                })();
+              }
             }
           })
           .catch((executionError: Error) => {
@@ -732,6 +767,7 @@ export class CoreToolScheduler {
                 executionError instanceof Error
                   ? executionError
                   : new Error(String(executionError)),
+                ToolErrorType.UNHANDLED_EXCEPTION,
               ),
             );
 
