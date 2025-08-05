@@ -22,6 +22,7 @@ import {
   OpenAICompatibleContentGenerator,
   AnthropicContentGenerator
 } from './customContentGenerators.js';
+import { LiteLLMGeminiContentGenerator } from './litellmGeminiContentGenerator.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -211,6 +212,10 @@ export async function createContentGenerator(
 
   // OpenAI Compatible APIs (including OpenAI, local LLMs with OpenAI-compatible endpoints)
   if (config.authType === AuthType.USE_OPENAI_COMPATIBLE) {
+    // LiteLLM経由でGeminiを呼び出す場合は専用のContentGeneratorを使用
+    if (config.model.includes('gemini')) {
+      return new LiteLLMGeminiContentGenerator(config);
+    }
     return new OpenAICompatibleContentGenerator(config);
   }
 
