@@ -236,36 +236,19 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
         continue;
       }
       
-      // ✅ 通常の関数宣言（MCP対応）
+      // 🔑 重要: Gemini標準の関数宣言をそのまま保持（OpenAI形式に変換しない）
       if ('functionDeclarations' in tool && tool.functionDeclarations) {
-        for (const funcDecl of tool.functionDeclarations) {
-          // 🔑 MCPツールの場合はparametersJsonSchemaを優先使用
-          const parameters = funcDecl.parametersJsonSchema || funcDecl.parameters;
-          
-          console.log(`🔍 Processing function: ${funcDecl.name}`, {
-            hasParametersJsonSchema: !!funcDecl.parametersJsonSchema,
-            hasParameters: !!funcDecl.parameters,
-            usedParameters: parameters
-          });
-          
-          preservedTools.push({
-            type: 'function',
-            function: {
-              name: funcDecl.name,
-              description: funcDecl.description || '',
-              parameters: parameters || { type: 'object', properties: {} }
-            }
-          });
-          
-          console.log(`✅ Preserved function: ${funcDecl.name}`);
-        }
+        console.log('✅ Preserving Gemini functionDeclarations format');
+        preservedTools.push({
+          functionDeclarations: tool.functionDeclarations
+        });
         continue;
       }
       
       console.log('⚠️ Unknown tool type:', Object.keys(tool));
     }
     
-    console.log('✅ Final preserved tools for LiteLLM:', JSON.stringify(preservedTools, null, 2));
+    console.log('✅ Final preserved tools for LiteLLM (Gemini format):', JSON.stringify(preservedTools, null, 2));
     return preservedTools;
   }
 
@@ -328,10 +311,11 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
       ? choice.delta?.content || ''
       : choice.message?.content || '';
 
-    // Parse function calls from OpenAI format to Gemini format
+    // Parse function calls - support both Gemini and OpenAI formats
     const functionCalls: any[] = [];
     const message = isStream ? choice.delta : choice.message;
 
+    // Handle OpenAI-style tool_calls (fallback for mixed responses)
     if (message?.tool_calls && Array.isArray(message.tool_calls)) {
       for (const toolCall of message.tool_calls) {
 
@@ -379,7 +363,7 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
                 args: args,
               });
               
-              console.log(`✅ Converted tool call: ${toolCall.function.name}`, args);
+              console.log(`✅ Converted OpenAI-style tool call: ${toolCall.function.name}`, args);
             } catch (e) {
               // Failed to parse tool call arguments - this can happen with malformed JSON
               console.log(`⚠️ Failed to parse tool call arguments for ${toolCall.function.name}:`, e);
@@ -391,6 +375,30 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
             }
           }
         }
+      }
+    }
+
+    // Handle Gemini-style function calls (primary format when using Gemini tools)
+    if (message?.function_call) {
+      try {
+        const args = typeof message.function_call.arguments === 'string'
+          ? JSON.parse(message.function_call.arguments)
+          : message.function_call.arguments || {};
+
+        functionCalls.push({
+          id: `gemini_${Date.now()}`,
+          name: message.function_call.name,
+          args: args,
+        });
+        
+        console.log(`✅ Converted Gemini-style function call: ${message.function_call.name}`, args);
+      } catch (e) {
+        console.log(`⚠️ Failed to parse Gemini function call arguments for ${message.function_call.name}:`, e);
+        functionCalls.push({
+          id: `gemini_${Date.now()}`,
+          name: message.function_call.name,
+          args: {},
+        });
       }
     }
 
