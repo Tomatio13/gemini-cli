@@ -17,14 +17,15 @@ import {
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
 import { ContentGenerator, ContentGeneratorConfig } from './contentGenerator.js';
-import { fetchWithTimeout } from '../utils/fetch.js';
 
 /**
  * LiteLLM経由でGemini APIを呼び出す専用ContentGenerator
  * Gemini特有のツール（Google Search, Code Execution, MCP）を保持
  */
 export class LiteLLMGeminiContentGenerator implements ContentGenerator {
-  constructor(private config: ContentGeneratorConfig) {}
+  constructor(private config: ContentGeneratorConfig) {
+    console.log(`🔍 LiteLLMGeminiContentGenerator initialized with model: ${config.model}`);
+  }
 
   async generateContent(
     request: GenerateContentParameters,
@@ -188,20 +189,33 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
     const contents = this.normalizeContents(request.contents);
     const messages = this.convertMessages(contents);
     
-    // Geminiモデル名の正規化
+    // モデル名の正規化
     let modelName = this.config.model;
-    if (!modelName.startsWith('gemini/')) {
+    
+    // GPT-5系モデルの場合は gemini/ プレフィックスを付けない
+    const isGpt5Model = modelName.startsWith('gpt-5');
+    if (!isGpt5Model && !modelName.startsWith('gemini/')) {
       modelName = `gemini/${modelName}`;
     }
     
     const litellmRequest: any = {
       model: modelName,
       messages,
-      temperature: request.config?.temperature || 0.7,
-      max_tokens: request.config?.maxOutputTokens || 2048,
-      top_p: request.config?.topP || 1,
       stream: false,
     };
+    
+    // GPT-5系モデルでは特別なパラメータ処理
+    if (isGpt5Model) {
+      // GPT-5モデルはtemperatureのデフォルト値（1）のみをサポート
+      // temperatureパラメータを省略してデフォルト値を使用
+      litellmRequest.max_completion_tokens = request.config?.maxOutputTokens || 2048;
+      console.log(`🔍 GPT-5 model detected: ${modelName}, using max_completion_tokens: ${litellmRequest.max_completion_tokens}, temperature: default (1)`);
+    } else {
+      // 通常のモデルでは通常のパラメータを使用
+      litellmRequest.temperature = request.config?.temperature || 0.7;
+      litellmRequest.top_p = request.config?.topP || 1;
+      litellmRequest.max_tokens = request.config?.maxOutputTokens || 2048;
+    }
 
     // 🔑 重要: Gemini特有ツールを保持したまま送信
     if (request.config?.tools && request.config.tools.length > 0) {
@@ -236,19 +250,29 @@ export class LiteLLMGeminiContentGenerator implements ContentGenerator {
         continue;
       }
       
-      // 🔑 重要: Gemini標準の関数宣言をそのまま保持（OpenAI形式に変換しない）
+      // 🔑 重要: Gemini標準の関数宣言をOpenAI形式に変換
       if ('functionDeclarations' in tool && tool.functionDeclarations) {
-        console.log('✅ Preserving Gemini functionDeclarations format');
-        preservedTools.push({
-          functionDeclarations: tool.functionDeclarations
-        });
+        console.log('🔄 Converting Gemini functionDeclarations to OpenAI format');
+        
+        for (const funcDecl of tool.functionDeclarations) {
+          const openaiTool = {
+            type: "function",
+            function: {
+              name: funcDecl.name,
+              description: funcDecl.description,
+              parameters: funcDecl.parametersJsonSchema
+            }
+          };
+          preservedTools.push(openaiTool);
+          console.log(`✅ Converted function: ${funcDecl.name}`);
+        }
         continue;
       }
       
       console.log('⚠️ Unknown tool type:', Object.keys(tool));
     }
     
-    console.log('✅ Final preserved tools for LiteLLM (Gemini format):', JSON.stringify(preservedTools, null, 2));
+    console.log('✅ Final preserved tools for LiteLLM (OpenAI format):', JSON.stringify(preservedTools, null, 2));
     return preservedTools;
   }
 

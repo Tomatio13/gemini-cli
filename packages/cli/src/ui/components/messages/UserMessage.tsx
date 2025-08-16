@@ -15,7 +15,8 @@ interface UserMessageProps {
 export const UserMessage: React.FC<UserMessageProps> = ({ text }) => {
   const prefix = '> ';
   const prefixWidth = prefix.length;
-  const isSlashCommand = text.startsWith('/');
+  const safeText = text || '';
+  const isSlashCommand = safeText.startsWith('/');
 
   const textColor = isSlashCommand ? Colors.AccentPurple : Colors.Gray;
   const borderColor = isSlashCommand ? Colors.AccentPurple : Colors.Gray;
@@ -35,7 +36,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text }) => {
       </Box>
       <Box flexGrow={1}>
         <Text wrap="wrap" color={textColor}>
-          {text}
+          {safeText}
         </Text>
       </Box>
     </Box>

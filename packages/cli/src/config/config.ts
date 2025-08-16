@@ -73,6 +73,7 @@ export interface CliArgs {
   listExtensions: boolean | undefined;
   proxy: string | undefined;
   includeDirectories: string[] | undefined;
+  authType: string | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -219,6 +220,20 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'string',
           description:
             'Proxy for gemini client, like schema://user:password@host:port',
+        })
+        .option('auth-type', {
+          type: 'string',
+          description:
+            'Authentication type (openai-compatible, anthropic, local-llm, gemini-api-key, oauth-personal, vertex-ai, cloud-shell)',
+          choices: [
+            'openai-compatible',
+            'anthropic', 
+            'local-llm',
+            'gemini-api-key',
+            'oauth-personal',
+            'vertex-ai',
+            'cloud-shell',
+          ],
         })
         .option('include-directories', {
           type: 'array',
@@ -524,7 +539,13 @@ export async function loadCliConfig(
     cwd,
     fileDiscoveryService: fileService,
     bugCommand: settings.bugCommand,
-    model: argv.model || settings.model || DEFAULT_GEMINI_MODEL,
+    model: (() => {
+      const selectedModel = argv.model || settings.model || DEFAULT_GEMINI_MODEL;
+      if (debugMode) {
+        console.log(`[DEBUG] Model selection: argv.model=${argv.model}, settings.model=${settings.model}, DEFAULT_GEMINI_MODEL=${DEFAULT_GEMINI_MODEL}, selected=${selectedModel}`);
+      }
+      return selectedModel;
+    })(),
     extensionContextFilePaths,
     maxSessionTurns: settings.maxSessionTurns ?? -1,
     experimentalZedIntegration: argv.experimentalAcp || false,
@@ -539,6 +560,7 @@ export async function loadCliConfig(
     folderTrust,
     interactive,
     trustedFolder,
+    hooks: settings.hooks,
   });
 }
 

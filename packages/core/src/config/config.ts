@@ -199,6 +199,7 @@ export interface ConfigParameters {
   chatCompression?: ChatCompressionSettings;
   interactive?: boolean;
   trustedFolder?: boolean;
+  hooks?: any;
 }
 
 export class Config {
@@ -329,6 +330,7 @@ export class Config {
     this.chatCompression = params.chatCompression;
     this.interactive = params.interactive ?? false;
     this.trustedFolder = params.trustedFolder;
+    (this as any).hooks = params.hooks;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -372,7 +374,7 @@ export class Config {
     }
 
     // Create new content generator config
-    const newContentGeneratorConfig = createContentGeneratorConfig(
+    const newContentGeneratorConfig = await createContentGeneratorConfig(
       this,
       authMethod,
     );
@@ -769,6 +771,19 @@ export class Config {
 
     await registry.discoverAllTools();
     return registry;
+  }
+
+  // Hook support methods
+  getAuthType(): AuthType | undefined {
+    return this.contentGeneratorConfig?.authType;
+  }
+
+  getHooks(): any {
+    return (this as any).hooks;
+  }
+
+  getTranscriptPath(): string | undefined {
+    return (this as any).transcriptPath;
   }
 }
 // Export model constants for use in CLI

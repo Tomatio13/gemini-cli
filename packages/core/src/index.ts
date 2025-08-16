@@ -94,6 +94,9 @@ export type {
 } from './mcp/oauth-utils.js';
 export { OAuthUtils } from './mcp/oauth-utils.js';
 
+// Export Hook functionality
+export * from './hooks/hookExecutor.js';
+
 // Export telemetry functions
 export * from './telemetry/index.js';
 export { sessionId } from './utils/session.js';

@@ -7,7 +7,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
-import os from 'os';
 import {
   discoverCustomSlashCommands,
   createCustomSlashCommands,
@@ -35,7 +34,6 @@ vi.mock('os', () => ({
 describe('customSlashCommands', () => {
   const mockContext: CustomSlashCommandContext = {
     addMessage: vi.fn(),
-    onDebugMessage: vi.fn(),
   };
 
   const mockCommandContext: CommandContext = {
@@ -49,9 +47,17 @@ describe('customSlashCommands', () => {
       addItem: vi.fn(),
       clear: vi.fn(),
       setDebugMessage: vi.fn(),
+      pendingItem: null,
+      setPendingItem: vi.fn(),
+      loadHistory: vi.fn(),
+      toggleCorgiMode: vi.fn(),
+      toggleVimEnabled: vi.fn(),
+      setGeminiMdFileCount: vi.fn(),
+      reloadCommands: vi.fn(),
     },
     session: {
       stats: {} as any,
+      sessionShellAllowlist: new Set<string>(),
     },
   };
 

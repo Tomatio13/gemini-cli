@@ -9,8 +9,6 @@ import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
 import { SlashCommand, CommandContext, SlashCommandActionReturn, CommandKind } from '../commands/types.js';
-import { Config } from '@google/gemini-cli-core';
-import { MessageType } from '../types.js';
 
 export interface CustomSlashCommandMetadata {
   'allowed-tools'?: string[];
@@ -223,6 +221,32 @@ export function createCustomSlashCommands(
       kind: CommandKind.FILE,
       action: async (commandContext: CommandContext, args: string): Promise<SlashCommandActionReturn> => {
         try {
+          // If no arguments provided, show help/description
+          if (!args || args.trim() === '') {
+            const helpContent = `
+## ${commandName}
+
+**説明:** ${command.metadata.description || `カスタムコマンド: ${command.name}`}
+
+**使用方法:** \`${commandName} [引数]\`
+
+${command.metadata['allowed-tools'] ? `**使用可能ツール:** ${command.metadata['allowed-tools'].join(', ')}` : ''}
+
+**コマンド内容:**
+\`\`\`markdown
+${command.content}
+\`\`\`
+
+引数を指定してコマンドを実行してください。
+            `.trim();
+            
+            return {
+              type: 'message',
+              messageType: 'info',
+              content: helpContent,
+            };
+          }
+          
           const processedContent = await processDynamicContent(command.content, context, args);
           
           // Add the processed content as a user message to trigger LLM conversation

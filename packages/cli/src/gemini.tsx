@@ -185,6 +185,28 @@ export async function main() {
     process.exit(0);
   }
 
+  // Override auth type if specified via CLI argument
+  if (argv.authType) {
+    // Convert CLI string to AuthType enum
+    const authTypeMapping: Record<string, AuthType> = {
+      'openai-compatible': AuthType.USE_OPENAI_COMPATIBLE,
+      'anthropic': AuthType.USE_ANTHROPIC,
+      'local-llm': AuthType.USE_LOCAL_LLM,
+      'gemini-api-key': AuthType.USE_GEMINI,
+      'oauth-personal': AuthType.LOGIN_WITH_GOOGLE,
+      'vertex-ai': AuthType.USE_VERTEX_AI,
+      'cloud-shell': AuthType.CLOUD_SHELL,
+    };
+    
+    const authType = authTypeMapping[argv.authType];
+    if (authType) {
+      settings.setValue(SettingScope.User, 'selectedAuthType', authType);
+    } else {
+      console.error(`Invalid auth-type: ${argv.authType}`);
+      process.exit(1);
+    }
+  }
+
   // Set a default auth type if one isn't set.
   if (!settings.merged.selectedAuthType) {
     if (process.env.CLOUD_SHELL === 'true') {
@@ -193,7 +215,20 @@ export async function main() {
         'selectedAuthType',
         AuthType.CLOUD_SHELL,
       );
+    } else {
+      // Default to Gemini API key authentication
+      settings.setValue(
+        SettingScope.User,
+        'selectedAuthType',
+        AuthType.USE_GEMINI,
+      );
     }
+  }
+
+  // Ensure model is set correctly based on auth type if not explicitly provided
+  if (!argv.model && settings.merged.selectedAuthType === AuthType.USE_GEMINI && (!settings.merged.model || settings.merged.model.startsWith('gpt-'))) {
+    // Reset model to Gemini default when using Gemini auth but model is OpenAI
+    settings.setValue(SettingScope.User, 'model', undefined);
   }
 
   setMaxSizedBoxDebugging(config.getDebugMode());

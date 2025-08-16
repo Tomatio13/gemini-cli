@@ -21,7 +21,7 @@ export const useNotificationHook = (config: Config) => {
       try {
         const hookInput = {
           session_id: sessionId,
-          transcript_path: await config.getTranscriptPath(),
+          transcript_path: (await config.getTranscriptPath()) || '',
           notification_type: notificationType,
           message: message,
           timestamp: new Date().toISOString(),

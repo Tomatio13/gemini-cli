@@ -15,12 +15,8 @@ import {
   Part,
   Candidate,
   GenerateContentResponseUsageMetadata,
-  ContentListUnion,
-  PartUnion,
-  ContentEmbedding,
 } from '@google/genai';
 import { ContentGenerator, ContentGeneratorConfig } from './contentGenerator.js';
-import { fetchWithTimeout } from '../utils/fetch.js';
 
 /**
  * Helper function to normalize ContentListUnion to Content array

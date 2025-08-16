@@ -22,6 +22,8 @@ export const useIdleStopHook = (
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    console.log(`[DEBUG] useIdleStopHook: streamingState changed to ${streamingState}, prev was ${prevStreamingStateRef.current}`);
+    
     // Clear any existing timeout when streaming state changes
     if (idleTimeoutRef.current) {
       clearTimeout(idleTimeoutRef.current);
@@ -32,6 +34,9 @@ export const useIdleStopHook = (
       if (!config) return;
       
       const hooks = config.getHooks();
+      console.log('[DEBUG] Hooks configuration:', hooks);
+      console.log('[DEBUG] Stop hooks:', hooks?.Stop);
+      
       if (hooks && hooks.Stop) {
         isExecutingRef.current = true;
         
@@ -41,7 +46,7 @@ export const useIdleStopHook = (
           
           const hookInput = {
             session_id: sessionId,
-            transcript_path: await config.getTranscriptPath(),
+            transcript_path: (await config.getTranscriptPath()) || '',
             stop_reason: 'response_complete',
             session_duration: '', // Not applicable for response completion
             timestamp: new Date().toISOString(),
