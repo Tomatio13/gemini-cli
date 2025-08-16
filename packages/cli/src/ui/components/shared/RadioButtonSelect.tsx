@@ -5,8 +5,9 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Text, Box, useInput } from 'ink';
+import { Text, Box } from 'ink';
 import { Colors } from '../../colors.js';
+import { useKeypress } from '../../hooks/useKeypress.js';
 
 /**
  * Represents a single option for the RadioButtonSelect.
@@ -54,14 +55,12 @@ export function RadioButtonSelect<T>({
   initialIndex = 0,
   onSelect,
   onHighlight,
-  isFocused,
+  isFocused = true,
   showScrollArrows = false,
   maxItemsToShow = 10,
   showNumbers = true,
 }: RadioButtonSelectProps<T>): React.JSX.Element {
-  // initialIndex が有効な範囲内にあることを確認
-  const safeInitialIndex = Math.max(0, Math.min(initialIndex, Math.max(0, items.length - 1)));
-  const [activeIndex, setActiveIndex] = useState(safeInitialIndex);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [numberInput, setNumberInput] = useState('');
   const numberInputTimer = useRef<NodeJS.Timeout | null>(null);
@@ -87,9 +86,10 @@ export function RadioButtonSelect<T>({
     [],
   );
 
-  useInput(
-    (input, key) => {
-      const isNumeric = showNumbers && /^[0-9]$/.test(input);
+  useKeypress(
+    (key) => {
+      const { sequence, name } = key;
+      const isNumeric = showNumbers && /^[0-9]$/.test(sequence);
 
       // Any key press that is not a digit should clear the number input buffer.
       if (!isNumeric && numberInputTimer.current) {
@@ -97,29 +97,22 @@ export function RadioButtonSelect<T>({
         setNumberInput('');
       }
 
-      if (input === 'k' || key.upArrow) {
-        if (items.length > 0) {
-          const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
-          setActiveIndex(newIndex);
-          onHighlight?.(items[newIndex]!.value);
-        }
+      if (name === 'k' || name === 'up') {
+        const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
+        setActiveIndex(newIndex);
+        onHighlight?.(items[newIndex]!.value);
         return;
       }
 
-      if (input === 'j' || key.downArrow) {
-        if (items.length > 0) {
-          const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
-          setActiveIndex(newIndex);
-          onHighlight?.(items[newIndex]!.value);
-        }
+      if (name === 'j' || name === 'down') {
+        const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
+        setActiveIndex(newIndex);
+        onHighlight?.(items[newIndex]!.value);
         return;
       }
 
-      if (key.return) {
-        // activeIndex が有効な範囲内にあることを確認
-        if (activeIndex >= 0 && activeIndex < items.length) {
-          onSelect(items[activeIndex]!.value);
-        }
+      if (name === 'return') {
+        onSelect(items[activeIndex]!.value);
         return;
       }
 
@@ -129,7 +122,7 @@ export function RadioButtonSelect<T>({
           clearTimeout(numberInputTimer.current);
         }
 
-        const newNumberInput = numberInput + input;
+        const newNumberInput = numberInput + sequence;
         setNumberInput(newNumberInput);
 
         const targetIndex = Number.parseInt(newNumberInput, 10) - 1;
@@ -163,7 +156,7 @@ export function RadioButtonSelect<T>({
         }
       }
     },
-    { isActive: isFocused && items.length > 0 },
+    { isActive: !!(isFocused && items.length > 0) },
   );
 
   const visibleItems = items.slice(scrollOffset, scrollOffset + maxItemsToShow);

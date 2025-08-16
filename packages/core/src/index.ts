@@ -19,9 +19,6 @@ export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
 
-// Export Hooks
-export * from './hooks/hookExecutor.js';
-
 export * from './code_assist/codeAssist.js';
 export * from './code_assist/oauth2.js';
 export * from './code_assist/server.js';
@@ -43,19 +40,19 @@ export * from './utils/shell-utils.js';
 export * from './utils/systemEncoding.js';
 export * from './utils/textUtils.js';
 export * from './utils/formatters.js';
-export * from './utils/workspaceContext.js';
+export * from './utils/filesearch/fileSearch.js';
+export * from './utils/errorParsing.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';
 export * from './services/gitService.js';
-export * from './services/loopDetectionService.js';
 
 // Export IDE specific logic
 export * from './ide/ide-client.js';
 export * from './ide/ideContext.js';
 export * from './ide/ide-installer.js';
-export { getIdeDisplayName, DetectedIde } from './ide/detect-ide.js';
-export { getIdeInstaller } from './ide/ide-installer.js';
+export { getIdeInfo, DetectedIde, IdeInfo } from './ide/detect-ide.js';
+export * from './ide/constants.js';
 
 // Export Shell Execution Service
 export * from './services/shellExecutionService.js';

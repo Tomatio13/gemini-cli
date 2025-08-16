@@ -9,23 +9,25 @@ import * as path from 'path';
 import { homedir, platform } from 'os';
 import * as dotenv from 'dotenv';
 import {
-  MCPServerConfig,
   GEMINI_CONFIG_DIR as GEMINI_DIR,
   getErrorMessage,
-  BugCommandSettings,
-  TelemetrySettings,
-  AuthType,
-  HookSettings,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
+import { Settings, MemoryImportFormat } from './settingsSchema.js';
+
+export type { Settings, MemoryImportFormat };
 
 export const SETTINGS_DIRECTORY_NAME = '.gemini';
 export const USER_SETTINGS_DIR = path.join(homedir(), SETTINGS_DIRECTORY_NAME);
 export const USER_SETTINGS_PATH = path.join(USER_SETTINGS_DIR, 'settings.json');
+export const DEFAULT_EXCLUDED_ENV_VARS = ['DEBUG', 'DEBUG_MODE'];
 
-function getSystemSettingsPath(): string {
+export function getSystemSettingsPath(): string {
+  if (process.env.GEMINI_CLI_SYSTEM_SETTINGS_PATH) {
+    return process.env.GEMINI_CLI_SYSTEM_SETTINGS_PATH;
+  }
   if (platform() === 'darwin') {
     return '/Library/Application Support/GeminiCli/settings.json';
   } else if (platform() === 'win32') {
@@ -35,9 +37,11 @@ function getSystemSettingsPath(): string {
   }
 }
 
-export type DnsResolutionOrder = 'ipv4first' | 'verbatim';
+export function getWorkspaceSettingsPath(workspaceDir: string): string {
+  return path.join(workspaceDir, SETTINGS_DIRECTORY_NAME, 'settings.json');
+}
 
-export const SYSTEM_SETTINGS_PATH = getSystemSettingsPath();
+export type { DnsResolutionOrder } from './settingsSchema.js';
 
 export enum SettingScope {
   User = 'User',
@@ -49,65 +53,12 @@ export interface CheckpointingSettings {
   enabled?: boolean;
 }
 
-export interface AccessibilitySettings {
-  disableLoadingPhrases?: boolean;
+export interface SummarizeToolOutputSettings {
+  tokenBudget?: number;
 }
 
-
-export interface Settings {
-  theme?: string;
-  selectedAuthType?: AuthType;
-  useExternalAuth?: boolean;
-  sandbox?: boolean | string;
-  coreTools?: string[];
-  excludeTools?: string[];
-  toolDiscoveryCommand?: string;
-  toolCallCommand?: string;
-  mcpServerCommand?: string;
-  mcpServers?: Record<string, MCPServerConfig>;
-  showMemoryUsage?: boolean;
-  contextFileName?: string | string[];
-  accessibility?: AccessibilitySettings;
-  telemetry?: TelemetrySettings;
-  usageStatisticsEnabled?: boolean;
-  preferredEditor?: string;
-  bugCommand?: BugCommandSettings;
-  checkpointing?: CheckpointingSettings;
-  autoConfigureMaxOldSpaceSize?: boolean;
-  hooks?: HookSettings;
-
-  // Git-aware file filtering settings
-  fileFiltering?: {
-    respectGitIgnore?: boolean;
-    respectGeminiIgnore?: boolean;
-    enableRecursiveFileSearch?: boolean;
-  };
-
-  // UI setting. Does not display the ANSI-controlled terminal title.
-  hideWindowTitle?: boolean;
-  hideTips?: boolean;
-  hideBanner?: boolean;
-
-  allowMCPServers?: string[];
-  excludeMCPServers?: string[];
-  maxSessionTurns?: number;
-  summarizeToolOutput?: Record<string, any>;
-  customThemes?: Record<string, any>;
-  vimMode?: boolean;
-  memoryImportFormat?: 'tree' | 'flat';
-
-  // Flag to be removed post-launch.
-  ideModeFeature?: boolean;
-  /// IDE mode setting configured via slash command toggle.
-  ideMode?: boolean;
-
-  // Setting for disabling auto-update.
-  disableAutoUpdate?: boolean;
-
-  memoryDiscoveryMaxDirs?: number;
-  dnsResolutionOrder?: DnsResolutionOrder;
-
-  // Add other settings here.
+export interface AccessibilitySettings {
+  disableLoadingPhrases?: boolean;
 }
 
 export interface SettingsError {
@@ -145,10 +96,38 @@ export class LoadedSettings {
   }
 
   private computeMergedSettings(): Settings {
+    const system = this.system.settings;
+    const user = this.user.settings;
+    const workspace = this.workspace.settings;
+
+    // folderTrust is not supported at workspace level.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { folderTrust, ...workspaceWithoutFolderTrust } = workspace;
+
     return {
-      ...this.user.settings,
-      ...this.workspace.settings,
-      ...this.system.settings,
+      ...user,
+      ...workspaceWithoutFolderTrust,
+      ...system,
+      customThemes: {
+        ...(user.customThemes || {}),
+        ...(workspace.customThemes || {}),
+        ...(system.customThemes || {}),
+      },
+      mcpServers: {
+        ...(user.mcpServers || {}),
+        ...(workspace.mcpServers || {}),
+        ...(system.mcpServers || {}),
+      },
+      includeDirectories: [
+        ...(system.includeDirectories || []),
+        ...(user.includeDirectories || []),
+        ...(workspace.includeDirectories || []),
+      ],
+      chatCompression: {
+        ...(system.chatCompression || {}),
+        ...(user.chatCompression || {}),
+        ...(workspace.chatCompression || {}),
+      },
     };
   }
 
@@ -165,13 +144,12 @@ export class LoadedSettings {
     }
   }
 
-  setValue(
+  setValue<K extends keyof Settings>(
     scope: SettingScope,
-    key: keyof Settings,
-    value: string | Record<string, MCPServerConfig> | undefined,
+    key: K,
+    value: Settings[K],
   ): void {
     const settingsFile = this.forScope(scope);
-    // @ts-expect-error - value can be string | Record<string, MCPServerConfig>
     settingsFile.settings[key] = value;
     this._merged = this.computeMergedSettings();
     saveSettings(settingsFile);
@@ -271,15 +249,61 @@ export function setUpCloudShellEnvironment(envFilePath: string | null): void {
   }
 }
 
-export function loadEnvironment(): void {
+export function loadEnvironment(settings?: Settings): void {
   const envFilePath = findEnvFile(process.cwd());
 
+  // Cloud Shell environment variable handling
   if (process.env.CLOUD_SHELL === 'true') {
     setUpCloudShellEnvironment(envFilePath);
   }
 
+  // If no settings provided, try to load workspace settings for exclusions
+  let resolvedSettings = settings;
+  if (!resolvedSettings) {
+    const workspaceSettingsPath = getWorkspaceSettingsPath(process.cwd());
+    try {
+      if (fs.existsSync(workspaceSettingsPath)) {
+        const workspaceContent = fs.readFileSync(
+          workspaceSettingsPath,
+          'utf-8',
+        );
+        const parsedWorkspaceSettings = JSON.parse(
+          stripJsonComments(workspaceContent),
+        ) as Settings;
+        resolvedSettings = resolveEnvVarsInObject(parsedWorkspaceSettings);
+      }
+    } catch (_e) {
+      // Ignore errors loading workspace settings
+    }
+  }
+
   if (envFilePath) {
-    dotenv.config({ path: envFilePath, quiet: true });
+    // Manually parse and load environment variables to handle exclusions correctly.
+    // This avoids modifying environment variables that were already set from the shell.
+    try {
+      const envFileContent = fs.readFileSync(envFilePath, 'utf-8');
+      const parsedEnv = dotenv.parse(envFileContent);
+
+      const excludedVars =
+        resolvedSettings?.excludedProjectEnvVars || DEFAULT_EXCLUDED_ENV_VARS;
+      const isProjectEnvFile = !envFilePath.includes(GEMINI_DIR);
+
+      for (const key in parsedEnv) {
+        if (Object.hasOwn(parsedEnv, key)) {
+          // If it's a project .env file, skip loading excluded variables.
+          if (isProjectEnvFile && excludedVars.includes(key)) {
+            continue;
+          }
+
+          // Load variable only if it's not already set in the environment.
+          if (!Object.hasOwn(process.env, key)) {
+            process.env[key] = parsedEnv[key];
+          }
+        }
+      }
+    } catch (_e) {
+      // Errors are ignored to match the behavior of `dotenv.config({ quiet: true })`.
+    }
   }
 }
 
@@ -288,14 +312,13 @@ export function loadEnvironment(): void {
  * Project settings override user settings.
  */
 export function loadSettings(workspaceDir: string): LoadedSettings {
-  loadEnvironment();
   let systemSettings: Settings = {};
   let userSettings: Settings = {};
   let workspaceSettings: Settings = {};
   const settingsErrors: SettingsError[] = [];
   const systemSettingsPath = getSystemSettingsPath();
 
-  // FIX: Resolve paths to their canonical representation to handle symlinks
+  // Resolve paths to their canonical representation to handle symlinks
   const resolvedWorkspaceDir = path.resolve(workspaceDir);
   const resolvedHomeDir = path.resolve(homedir());
 
@@ -310,10 +333,12 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   // We expect homedir to always exist and be resolvable.
   const realHomeDir = fs.realpathSync(resolvedHomeDir);
 
+  const workspaceSettingsPath = getWorkspaceSettingsPath(workspaceDir);
+
   // Load system settings
   try {
-    if (fs.existsSync(SYSTEM_SETTINGS_PATH)) {
-      const systemContent = fs.readFileSync(SYSTEM_SETTINGS_PATH, 'utf-8');
+    if (fs.existsSync(systemSettingsPath)) {
+      const systemContent = fs.readFileSync(systemSettingsPath, 'utf-8');
       const parsedSystemSettings = JSON.parse(
         stripJsonComments(systemContent),
       ) as Settings;
@@ -322,7 +347,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   } catch (error: unknown) {
     settingsErrors.push({
       message: getErrorMessage(error),
-      path: SYSTEM_SETTINGS_PATH,
+      path: systemSettingsPath,
     });
   }
 
@@ -348,13 +373,6 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
     });
   }
 
-  const workspaceSettingsPath = path.join(
-    workspaceDir,
-    SETTINGS_DIRECTORY_NAME,
-    'settings.json',
-  );
-
-  // This comparison is now much more reliable.
   if (realWorkspaceDir !== realHomeDir) {
     // Load workspace settings
     try {
@@ -381,9 +399,10 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
     }
   }
 
-  return new LoadedSettings(
+  // Create LoadedSettings first
+  const loadedSettings = new LoadedSettings(
     {
-      path: SYSTEM_SETTINGS_PATH,
+      path: systemSettingsPath,
       settings: systemSettings,
     },
     {
@@ -396,6 +415,24 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
     },
     settingsErrors,
   );
+
+  // Validate chatCompression settings
+  const chatCompression = loadedSettings.merged.chatCompression;
+  const threshold = chatCompression?.contextPercentageThreshold;
+  if (
+    threshold != null &&
+    (typeof threshold !== 'number' || threshold < 0 || threshold > 1)
+  ) {
+    console.warn(
+      `Invalid value for chatCompression.contextPercentageThreshold: "${threshold}". Please use a value between 0 and 1. Using default compression settings.`,
+    );
+    delete loadedSettings.merged.chatCompression;
+  }
+
+  // Load environment with merged settings
+  loadEnvironment(loadedSettings.merged);
+
+  return loadedSettings;
 }
 
 export function saveSettings(settingsFile: SettingsFile): void {

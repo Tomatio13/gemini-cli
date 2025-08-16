@@ -5,8 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import {
   EDITOR_DISPLAY_NAMES,
@@ -16,6 +15,7 @@ import {
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { EditorType, isEditorAvailable } from '@google/gemini-cli-core';
+import { useKeypress } from '../hooks/useKeypress.js';
 
 interface EditorDialogProps {
   onSelect: (editorType: EditorType | undefined, scope: SettingScope) => void;
@@ -28,21 +28,23 @@ export function EditorSettingsDialog({
   settings,
   onExit,
 }: EditorDialogProps): React.JSX.Element {
-  const { t } = useTranslation();
   const [selectedScope, setSelectedScope] = useState<SettingScope>(
     SettingScope.User,
   );
   const [focusedSection, setFocusedSection] = useState<'editor' | 'scope'>(
     'editor',
   );
-  useInput((_, key) => {
-    if (key.tab) {
-      setFocusedSection((prev) => (prev === 'editor' ? 'scope' : 'editor'));
-    }
-    if (key.escape) {
-      onExit();
-    }
-  });
+  useKeypress(
+    (key) => {
+      if (key.name === 'tab') {
+        setFocusedSection((prev) => (prev === 'editor' ? 'scope' : 'editor'));
+      }
+      if (key.name === 'escape') {
+        onExit();
+      }
+    },
+    { isActive: true },
+  );
 
   const editorItems: EditorDisplay[] =
     editorSettingsManager.getAvailableEditorDisplays();
@@ -60,8 +62,8 @@ export function EditorSettingsDialog({
   }
 
   const scopeItems = [
-    { label: t('User Settings'), value: SettingScope.User },
-    { label: t('Workspace Settings'), value: SettingScope.Workspace },
+    { label: 'User Settings', value: SettingScope.User },
+    { label: 'Workspace Settings', value: SettingScope.Workspace },
   ];
 
   const handleEditorSelect = (editorType: EditorType | 'not_set') => {
@@ -85,11 +87,11 @@ export function EditorSettingsDialog({
   if (settings.forScope(otherScope).settings.preferredEditor !== undefined) {
     otherScopeModifiedMessage =
       settings.forScope(selectedScope).settings.preferredEditor !== undefined
-        ? t('(Also modified in {{scope}})', { scope: otherScope })
-        : t('(Modified in {{scope}})', { scope: otherScope });
+        ? `(Also modified in ${otherScope})`
+        : `(Modified in ${otherScope})`;
   }
 
-  let mergedEditorName = t('None');
+  let mergedEditorName = 'None';
   if (
     settings.merged.preferredEditor &&
     isEditorAvailable(settings.merged.preferredEditor)
@@ -108,8 +110,7 @@ export function EditorSettingsDialog({
     >
       <Box flexDirection="column" width="45%" paddingRight={2}>
         <Text bold={focusedSection === 'editor'}>
-          {focusedSection === 'editor' ? '> ' : '  '}
-          {t('Select Editor')}{' '}
+          {focusedSection === 'editor' ? '> ' : '  '}Select Editor{' '}
           <Text color={Colors.Gray}>{otherScopeModifiedMessage}</Text>
         </Text>
         <RadioButtonSelect
@@ -126,8 +127,7 @@ export function EditorSettingsDialog({
 
         <Box marginTop={1} flexDirection="column">
           <Text bold={focusedSection === 'scope'}>
-            {focusedSection === 'scope' ? '> ' : '  '}
-            {t('Apply To')}
+            {focusedSection === 'scope' ? '> ' : '  '}Apply To
           </Text>
           <RadioButtonSelect
             items={scopeItems}
@@ -139,23 +139,31 @@ export function EditorSettingsDialog({
 
         <Box marginTop={1}>
           <Text color={Colors.Gray}>
-            {t('(Use Enter to select, Tab to change focus)')}
+            (Use Enter to select, Tab to change focus)
           </Text>
         </Box>
       </Box>
 
       <Box flexDirection="column" width="55%" paddingLeft={2}>
-        <Text bold>{t('Editor Preference')}</Text>
+        <Text bold>Editor Preference</Text>
         <Box flexDirection="column" gap={1} marginTop={1}>
           <Text color={Colors.Gray}>
-            {t(
-              'These editors are currently supported. Please note that some editors cannot be used in sandbox mode.',
-            )}
+            These editors are currently supported. Please note that some editors
+            cannot be used in sandbox mode.
           </Text>
           <Text color={Colors.Gray}>
-            {t('Your preferred editor is: {{editorName}}.', {
-              editorName: mergedEditorName,
-            })}
+            Your preferred editor is:{' '}
+            <Text
+              color={
+                mergedEditorName === 'None'
+                  ? Colors.AccentRed
+                  : Colors.AccentCyan
+              }
+              bold
+            >
+              {mergedEditorName}
+            </Text>
+            .
           </Text>
         </Box>
       </Box>

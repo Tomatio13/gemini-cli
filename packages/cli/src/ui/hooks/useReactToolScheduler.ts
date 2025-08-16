@@ -17,11 +17,9 @@ import {
   OutputUpdateHandler,
   AllToolCallsCompleteHandler,
   ToolCallsUpdateHandler,
-  Tool,
   ToolCall,
   Status as CoreStatus,
   EditorType,
-  HookExecutor,
 } from '@google/gemini-cli-core';
 import { useCallback, useState, useMemo } from 'react';
 import {
@@ -65,12 +63,13 @@ export type TrackedToolCall =
   | TrackedCancelledToolCall;
 
 export function useReactToolScheduler(
-  onComplete: (tools: CompletedToolCall[]) => void,
+  onComplete: (tools: CompletedToolCall[]) => Promise<void>,
   config: Config,
   setPendingHistoryItem: React.Dispatch<
     React.SetStateAction<HistoryItemWithoutId | null>
   >,
   getPreferredEditor: () => EditorType | undefined,
+  onEditorClose: () => void,
 ): [TrackedToolCall[], ScheduleFn, MarkToolsAsSubmittedFn] {
   const [toolCallsForDisplay, setToolCallsForDisplay] = useState<
     TrackedToolCall[]
@@ -107,8 +106,8 @@ export function useReactToolScheduler(
   );
 
   const allToolCallsCompleteHandler: AllToolCallsCompleteHandler = useCallback(
-    (completedToolCalls) => {
-      onComplete(completedToolCalls);
+    async (completedToolCalls) => {
+      await onComplete(completedToolCalls);
     },
     [onComplete],
   );
@@ -133,36 +132,23 @@ export function useReactToolScheduler(
   );
 
   const scheduler = useMemo(
-    () => {
-      // Create HookExecutor if hooks are configured
-      let hookExecutor;
-      const hooks = config.getHooks();
-      if (config.getDebugMode()) {
-        console.log('[DEBUG] useReactToolScheduler: hooks configuration:', hooks);
-      }
-      if (hooks && Object.keys(hooks).length > 0) {
-        hookExecutor = new HookExecutor(hooks, config.getDebugMode());
-        if (config.getDebugMode()) {
-          console.log('[DEBUG] useReactToolScheduler: HookExecutor created');
-        }
-      }
-
-      return new CoreToolScheduler({
+    () =>
+      new CoreToolScheduler({
         toolRegistry: config.getToolRegistry(),
         outputUpdateHandler,
         onAllToolCallsComplete: allToolCallsCompleteHandler,
         onToolCallsUpdate: toolCallsUpdateHandler,
         getPreferredEditor,
         config,
-        hookExecutor,
-      });
-    },
+        onEditorClose,
+      }),
     [
       config,
       outputUpdateHandler,
       allToolCallsCompleteHandler,
       toolCallsUpdateHandler,
       getPreferredEditor,
+      onEditorClose,
     ],
   );
 
@@ -171,7 +157,7 @@ export function useReactToolScheduler(
       request: ToolCallRequestInfo | ToolCallRequestInfo[],
       signal: AbortSignal,
     ) => {
-      scheduler.schedule(request, signal);
+      void scheduler.schedule(request, signal);
     },
     [scheduler],
   );
@@ -229,23 +215,20 @@ export function mapToDisplay(
 
   const toolDisplays = toolCalls.map(
     (trackedCall): IndividualToolCallDisplay => {
-      let displayName = trackedCall.request.name;
-      let description = '';
+      let displayName: string;
+      let description: string;
       let renderOutputAsMarkdown = false;
 
-      const currentToolInstance =
-        'tool' in trackedCall && trackedCall.tool
-          ? (trackedCall as { tool: Tool }).tool
-          : undefined;
-
-      if (currentToolInstance) {
-        displayName = currentToolInstance.displayName;
-        description = currentToolInstance.getDescription(
-          trackedCall.request.args,
-        );
-        renderOutputAsMarkdown = currentToolInstance.isOutputMarkdown;
-      } else if ('request' in trackedCall && 'args' in trackedCall.request) {
+      if (trackedCall.status === 'error') {
+        displayName =
+          trackedCall.tool === undefined
+            ? trackedCall.request.name
+            : trackedCall.tool.displayName;
         description = JSON.stringify(trackedCall.request.args);
+      } else {
+        displayName = trackedCall.tool.displayName;
+        description = trackedCall.invocation.getDescription();
+        renderOutputAsMarkdown = trackedCall.tool.isOutputMarkdown;
       }
 
       const baseDisplayProperties: Omit<
@@ -269,7 +252,6 @@ export function mapToDisplay(
         case 'error':
           return {
             ...baseDisplayProperties,
-            name: currentToolInstance?.displayName ?? trackedCall.request.name,
             status: mapCoreStatusToDisplayStatus(trackedCall.status),
             resultDisplay: trackedCall.response.resultDisplay,
             confirmationDetails: undefined,
